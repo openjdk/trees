@@ -1,0 +1,9 @@
+[defaults]
+backout = -d "0 0"
+commit = -d "0 0"
+tag = -d "0 0"
+ttag = -d "0 0"
+
+[ui]
+slash = True
+username = anontester
