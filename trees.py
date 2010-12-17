@@ -96,11 +96,42 @@ def _subtreegen(ui, repo, opts):
                 yield repo, subtree
             i += 1
 
+def _docmd1(cmd, ui, repo, *args, **opts):
+    '''Call cmd for repo and each configured/specified subtree.
+    This is for commands which use one repo (e.g., tstatus).'''
+    ui.status('[%s]:\n' % repo.root)
+    trc = cmd(ui, repo, *args, **opts)
+    rc = trc != None and trc or 0
+    for subtree in _subtreelist(ui, repo, opts):
+        ui.status('\n')
+        lr = hg.repository(ui, repo.wjoin(subtree))
+        trc = _docmd1(cmd, lr.ui, lr, *args, **opts)
+        rc += trc != None and trc or 0
+    return rc
+
+def _docmd2(cmd, ui, repo, remote, adjust, **opts):
+    '''Call cmd for repo and each configured/specified subtree.
+    This is for commands which use two repos (e.g., tincoming, tpush).'''
+    ui.status('[%s]:\n' % repo.root)
+    trc = cmd(ui, repo, remote, **opts)
+    rc = trc != None and trc or 0
+    for subtree in _subtreelist(ui, repo, opts):
+        ui.status('\n')
+        lr = hg.repository(ui, repo.wjoin(subtree))
+        remote2 = adjust and os.path.join(remote, subtree) or remote
+        trc = _docmd2(cmd, lr.ui, lr, remote2, adjust, **opts)
+        rc += trc != None and trc or 0
+    return rc
+
 def _makeparentdir(path):
     if path:
         pdir = os.path.split(path.rstrip(os.sep + '/'))[0]
         if pdir and not os.path.exists(pdir):
             os.makedirs(pdir)
+
+def _origcmd(name):
+    'Return the callable mercurial will invoke for the given command name.'
+    return cmdutil.findcmd(name, commands.table)[1][0]
 
 def _shortpaths(root, subtrees):
     l = []
@@ -253,21 +284,15 @@ def config(ui, repo, *subtrees, **opts):
             l = _shortpaths(repo.root, _walk(ui, repo, {}))[1:]
         return _writeconfig(repo, l)
 
-def _incoming(ui, repo, remote, adjust, opts):
-    ui.status('[%s]:\n' % repo.root)
-    commands.incoming(ui, repo, remote, **opts)
-    for subtree in _subtreelist(ui, repo, opts):
-        ui.status('\n')
-        lr = hg.repository(ui, repo.wjoin(subtree))
-        remote2 = adjust and os.path.join(remote, subtree) or remote
-        _incoming(lr.ui, lr, remote2, adjust, opts)
-    return 0
-
 def incoming(ui, repo, remote="default", **opts):
-    '''show new changesets found in source '''
+    '''show new changesets found in source'''
     _checklocal(repo)
     adjust = remote and not ui.config('paths', remote)
-    return _incoming(ui, repo, remote, adjust, opts)
+    st = opts.get('subtrees')
+    repocount = len(_list(ui, repo, st and {'subtrees': st} or {}))
+    rc = _docmd2(_origcmd('incoming'), ui, repo, remote, adjust, **opts)
+    # return 0 if any of the repos have incoming changes; 1 otherwise.
+    return int(rc == repocount)
 
 def _list(ui, repo, opts):
     l = [repo.root]
@@ -284,7 +309,7 @@ def list(ui, repo, **opts):
     '''list the repo and configured subtrees, recursively
 
     The initial list of subtrees is obtained from the command line (if present)
-    or from the repo's subtrees configuration.
+    or from the repo configuration.
 
     If the --walk option is specified, search the filesystem for subtrees
     instead of using the command line or configuration item.
@@ -303,102 +328,86 @@ def list(ui, repo, **opts):
         ui.write(subtree + '\n')
     return 0
 
-def _outgoing(ui, repo, remote, adjust, opts):
-    ui.status('[%s]:\n' % repo.root)
-    commands.outgoing(ui, repo, remote, **opts)
-    for subtree in _subtreelist(ui, repo, opts):
-        ui.status('\n')
-        lr = hg.repository(ui, repo.wjoin(subtree))
-        remote2 = adjust and os.path.join(remote, subtree) or remote
-        _outgoing(lr.ui, lr, remote2, adjust, opts)
-    return 0
-
 def outgoing(ui, repo, remote=None, **opts):
     '''show changesets not found in the destination'''
     _checklocal(repo)
     adjust = remote and not ui.config('paths', remote)
-    return _outgoing(ui, repo, remote, adjust, opts)
+    st = opts.get('subtrees')
+    repocount = len(_list(ui, repo, st and {'subtrees': st} or {}))
+    rc = _docmd2(_origcmd('outgoing'), ui, repo, remote, adjust, **opts)
+    # return 0 if any of the repos have outgoing changes; 1 otherwise.
+    return int(rc == repocount)
+
+def _paths(cmd, ui, repo, search=None, **opts):
+    ui.status('[%s]:\n' % repo.root)
+    cmd(ui, repo, search)
+    for subtree in _subtreelist(ui, repo, opts):
+        ui.status('\n')
+        lr = hg.repository(ui, repo.wjoin(subtree))
+        _paths(cmd, lr.ui, lr, search, **opts)
+    return 0
 
 def paths(ui, repo, search=None, **opts):
     '''show aliases for remote repositories'''
     _checklocal(repo)
-    ui.status('[%s]:\n' % repo.root)
-    commands.paths(ui, repo, search)
-    for subtree in _subtreelist(ui, repo, opts):
-        ui.status('\n')
-        lr = hg.repository(ui, repo.wjoin(subtree))
-        paths(lr.ui, lr, search, **opts)
-    return 0
-
-def _pull(ui, repo, remote, adjust, opts):
-    ui.status('[%s]:\n' % repo.root)
-    commands.pull(ui, repo, remote, **opts)
-    for subtree in _subtreelist(ui, repo, opts):
-        ui.status('\n')
-        lr = hg.repository(ui, repo.wjoin(subtree))
-        remote2 = adjust and os.path.join(remote, subtree) or remote
-        _pull(lr.ui, lr, remote2, adjust, opts)
-    return 0
+    return _paths(_origcmd('paths'), ui, repo, search, **opts)
 
 def pull(ui, repo, remote="default", **opts):
     '''pull changes from the specified source'''
     _checklocal(repo)
     adjust = remote and not ui.config('paths', remote)
-    return _pull(ui, repo, remote, adjust, opts)
-
-def _push(ui, repo, remote, adjust, opts):
-    ui.status('[%s]:\n' % repo.root)
-    commands.push(ui, repo, remote, **opts)
-    for subtree in _subtreelist(ui, repo, opts):
-        ui.status('\n')
-        lr = hg.repository(ui, repo.wjoin(subtree))
-        remote2 = adjust and os.path.join(remote, subtree) or remote
-        _push(lr.ui, lr, remote2, adjust, opts)
-    return 0
+    st = opts.get('subtrees')
+    repocount = len(_list(ui, repo, st and {'subtrees': st} or {}))
+    rc = _docmd2(_origcmd('pull'), ui, repo, remote, adjust, **opts)
+    # Sadly, pull returns 1 if there was nothing to pull *or* if there are
+    # unresolved files on update.  No way to distinguish between them.
+    # return 0 if any subtree pulled successfully.
+    return int(rc == repocount)
 
 def push(ui, repo, remote=None, **opts):
     '''push changes to the specified destination'''
     _checklocal(repo)
     adjust = remote and not ui.config('paths', remote)
-    return _push(ui, repo, remote, adjust, opts)
+    st = opts.get('subtrees')
+    repocount = len(_list(ui, repo, st and {'subtrees': st} or {}))
+    rc = _docmd2(_origcmd('push'), ui, repo, remote, adjust, **opts)
+    # return 0 if all pushes were successful; 1 if none of the repos had
+    # anything to push.
+    return int(rc == repocount)
 
-def status(ui, repo, *pats, **opts):
+def status(ui, repo, *args, **opts):
     '''show changed files in the working directory'''
     _checklocal(repo)
-    ui.status('[%s]:\n' % repo.root)
-    commands.status(ui, repo, *pats, **opts)
-    for subtree in _subtreelist(ui, repo, opts):
-        ui.status('\n')
-        lr = hg.repository(ui, repo.wjoin(subtree))
-        status(lr.ui, lr, *pats, **opts)
-    return 0
+    return _docmd1(_origcmd('status'), ui, repo, *args, **opts)
 
 def tag(ui, repo, name1, *names, **opts):
     '''add one or more tags for the current or given revision'''
     _checklocal(repo)
+    return _docmd1(_origcmd('tag'), ui, repo, name1, *names, **opts)
+
+def _update(cmd, ui, repo, node=None, rev=None, clean=False, date=None,
+            check=False, **opts):
     ui.status('[%s]:\n' % repo.root)
-    commands.tag(ui, repo, name1, *names, **opts)
+    trc = cmd(ui, repo, node, rev, clean, date, check)
+    rc = trc != None and trc or 0
     for subtree in _subtreelist(ui, repo, opts):
         ui.status('\n')
         lr = hg.repository(ui, repo.wjoin(subtree))
-        tag(lr.ui, lr, name1, *names, **opts)
-    return 0
+        trc = _update(cmd, lr.ui, lr, node, rev, clean, date, check, **opts)
+        rc += trc != None and trc or 0
+    return rc
 
 def update(ui, repo, node=None, rev=None, clean=False, date=None, check=False,
            **opts):
     '''update working directory (or switch revisions)'''
     _checklocal(repo)
-    ui.status('[%s]:\n' % repo.root)
-    commands.update(ui, repo, node, rev, clean, date, check)
-    for subtree in _subtreelist(ui, repo, opts):
-        ui.status('\n')
-        lr = hg.repository(ui, repo.wjoin(subtree))
-        update(lr.ui, lr, node, rev, clean, date, check, **opts)
-    return 0
+    rc = _update(_origcmd('update'), ui, repo, node, rev, clean, date, check,
+                 **opts)
+    return rc and 1 or 0
 
 def version(ui, **opts):
     '''show version information'''
-    ui.status('trees extension (version 0.5)\n')
+    ui.status('trees extension (version 0.7)\n')
 
 def debugkeys(ui, src, **opts):
     repo = hg.repository(ui, src)
@@ -437,24 +446,29 @@ def _newcte(origcmd, newfunc, extraopts = [], synopsis = None):
         return (newfunc, cte[1] + extraopts, synopsis or cte[2])
     return (newfunc, cte[1] + extraopts, synopsis)
 
-# Commands tagged with '^' are listed by 'hg help'.
-cmdtable = {
-    '^tclone': _newcte('clone', clone, subtreesopt,
-                       _('[OPTION]... SOURCE [DEST [SUBTREE]...]')),
-    'tcommand': (command, commandopts, _('command [arg] ...')),
-    'tconfig': (config, configopts, _('[OPTION]... [SUBTREE]...')),
-    'tincoming': _newcte('incoming', incoming, subtreesopt),
-    'toutgoing': _newcte('outgoing', outgoing, subtreesopt),
-    'tlist': (list, listopts, _('[OPTION]...')),
-    'tpaths': _newcte('paths', paths, subtreesopt),
-    '^tpull': _newcte('pull', pull, subtreesopt),
-    '^tpush': _newcte('push', push, subtreesopt),
-    '^tstatus': _newcte('status', status, subtreesopt),
-    '^tupdate': _newcte('update', update, subtreesopt),
-    'ttag': _newcte('tag', tag, subtreesopt),
-    'tversion': (version, [], ''),
-    'tdebugkeys': (debugkeys, [], '')
-}
+def extsetup(ui = None):
+    global cmdtable
+    # The cmdtable is initialized here to pick up options added by other
+    # extensions (e.g., rebase, bookmarks).
+    #
+    # Commands tagged with '^' are listed by 'hg help'.
+    cmdtable = {
+        '^tclone': _newcte('clone', clone, subtreesopt,
+                           _('[OPTION]... SOURCE [DEST [SUBTREE]...]')),
+        'tcommand': (command, commandopts, _('command [arg] ...')),
+        'tconfig': (config, configopts, _('[OPTION]... [SUBTREE]...')),
+        'tincoming': _newcte('incoming', incoming, subtreesopt),
+        'toutgoing': _newcte('outgoing', outgoing, subtreesopt),
+        'tlist': (list, listopts, _('[OPTION]...')),
+        'tpaths': _newcte('paths', paths, subtreesopt),
+        '^tpull': _newcte('pull', pull, subtreesopt),
+        '^tpush': _newcte('push', push, subtreesopt),
+        '^tstatus': _newcte('status', status, subtreesopt),
+        '^tupdate': _newcte('update', update, subtreesopt),
+        'ttag': _newcte('tag', tag, subtreesopt),
+        'tversion': (version, [], ''),
+        'tdebugkeys': (debugkeys, [], '')
+    }
 
 commands.norepo += ' tclone tversion tdebugkeys'
 
