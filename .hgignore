@@ -1,0 +1,4 @@
+syntax: glob
+*.pyc
+tests/*.t.err
+tests/hg-versions

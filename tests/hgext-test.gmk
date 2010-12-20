@@ -1,0 +1,145 @@
+# 
+# Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+# DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+# 
+# This code is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License version 2 only, as
+# published by the Free Software Foundation.
+# 
+# This code is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# version 2 for more details (a copy is included in the LICENSE file that
+# accompanied this code).
+# 
+# You should have received a copy of the GNU General Public License version
+# 2 along with this work; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+# 
+# Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+# or visit www.oracle.com if you need additional information or have any
+# questions.
+# 
+
+# Test an hg extension against multiple hg versions.  Mercurial's run-tests.py
+# is used to run the tests, so the tests should be written as mercurial
+# "unified" tests (see the mercurial web site).
+#
+# Testing requires a private clone of the mercurial repo, since it is modified
+# when running tests.  Use "gmake clone-hg" before running tests the first time
+# to create a clone.
+#
+# Once the clone exists, run "gmake test-hg-versions" to test against multiple
+# hg versions.
+#
+# Required variables (must be set before including this makefile):
+# 
+#     HGEXT_TEST   = the directory containing this makefile and the
+#                    verlist extension
+#     EXTENSION_PY = the absolute path to the extension to be tested
+# 
+# Optional variables:
+# 
+#     HG_VERSIONS  = a list of revision ranges specifying the mercurial versions
+#                    to test (e.g., 0.9.4 1.0:1.3.2 1.5:)
+#     HG_REPO      = absolute path of the mercurial clone 
+#     TEST_DIR     = directory where the extension's unified tests are kept
+#     TEST_VER_DIR = directory where the output from test-hg-versions is stored
+#
+# Example:
+# 
+# HGEXT_TEST   = ../hgext-test
+# EXTENSION_PY = $(SOURCE_DIR)/myextension.py
+# HG_VERSIONS = 1.1:   # test 1.1 and later
+# 
+# include ${HGEXT_TEST}/hgext-test.gmk
+
+HG		?= hg
+
+HG_URL		?= http://selenic.com/repo/hg
+# Working clone of ${HG_URL} (modified when running tests).
+HG_REPO		?= $(shell pwd)/hg-repo
+
+TEST_DIR	?= tests
+TEST_VER_DIR	?= ${TEST_DIR}/hg-versions
+TESTS		?= *.t
+
+# Command to list the hg versions tested by the 'test-hg-versions' target.  The
+# list is generated from the tags in ${HG_REPO} using the verlist extension.
+VERLIST_EXT	= ${HGEXT_TEST}/verlist.py
+VERLIST_CFG	= --config extensions.verlist=${VERLIST_EXT}
+VERLIST_ARGS	= ${VERLIST_CFG} verlist -l ${HG_VERSIONS}
+VERLIST_CMD	= ${HG} -R ${HG_REPO} ${VERLIST_ARGS}
+VERLIST_TARGETS	= $(if $(wildcard ${HG_REPO}),\
+		    $(addprefix ${TEST_VER_DIR}/,$(shell ${VERLIST_CMD})))
+
+Q		:= @
+
+RUN_TESTS_PY	:= ${HG_REPO}/tests/run-tests.py
+KILLDAEMONS_PY	:= ${HG_REPO}/tests/killdaemons.py
+
+changelog	:= .hg/store/00changelog.i
+
+define test-hg-failed
+{						\
+rc=$$?;						\
+f="${@}-`date +%Y%m%d%H%M%S`";			\
+mv "$@" "$$f";					\
+echo "$$f:"; 					\
+tail "$$f"; 					\
+exit $$rc;					\
+}
+endef
+
+# The working dir of ${HG_REPO} is updated to different hg versions to test with
+# those versions.  Get the most recent run-tests.py and killdaemons.py to run
+# the tests.
+define test-hg-prep-run-tests
+${Q} ${HG} -R ${HG_REPO} cat -r tip ${RUN_TESTS_PY} > ${RUN_TESTS_PY}
+${Q} ${HG} -R ${HG_REPO} cat -r tip ${KILLDAEMONS_PY} > ${KILLDAEMONS_PY}
+endef
+
+define test-hg-ver-commands
+@    echo "----------------------------------------"
+@    echo "running tests with hg $(notdir $@):"
+${Q} mkdir -p '$(dir $@)'
+${Q} ${HG} -R ${HG_REPO} up -q -C $(notdir $@)
+${Q} ${HG} -R ${HG_REPO} log -r . > $@
+${Q} ${MAKE} test >> $@ 2>&1 || ${test-hg-failed}
+${Q} grep '^# Ran ' $@
+endef
+
+.PHONY:  clean-tests clean-test-repo clone-hg test test-hg-versions FORCE
+
+test:  clone-hg
+	${test-hg-prep-run-tests}
+	cd ${TEST_DIR} && EXTENSION_PY=${EXTENSION_PY} ${RUN_TESTS_PY} ${TESTS}
+
+clone-hg: ${HG_REPO}/.hg/requires
+
+clean-hg-versions:
+	rm -fr "${TEST_VER_DIR}"
+
+clean-hg-repo:  
+	rm -fr "${HG_REPO}"
+
+# Run the tests with multiple hg versions.
+test-hg-versions:  ${HG_REPO}/${changelog} ${VERLIST_TARGETS}
+
+# The tags in the mercurial repo (aside from tip) do not change, so no need to
+# retest with old hg versions unless trees.py has changed.  Use .hg/requires
+# as a dependency to trigger a clone if it doesn't exist (using ${HG_REPO}
+# directly would repeat tests unnecessarily, as it changes on each 'hg update').
+${TEST_VER_DIR}/%:  ${EXTENSION_PY} ${HG_REPO}/.hg/requires
+	${test-hg-ver-commands}
+
+# Retest tip whenever new mercurial changesets show up.
+${TEST_VER_DIR}/tip:  ${EXTENSION_PY} ${HG_REPO}/${changelog}
+	${test-hg-ver-commands}
+
+${HG_REPO}/.hg/requires:
+	${HG} clone ${HG_URL} ${HG_REPO}
+
+${HG_REPO}/${changelog}:  ${HG_REPO}/.hg/requires FORCE
+	${Q} ${HG} -R ${HG_REPO} up -q -C tip
+	${Q} ${HG} -R ${HG_REPO} pull -q -u ${HG_URL}

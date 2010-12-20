@@ -410,8 +410,14 @@ def version(ui, **opts):
     ui.status('trees extension (version 0.7)\n')
 
 def debugkeys(ui, src, **opts):
-    repo = hg.repository(ui, src)
-    print(repo.listkeys('trees'))
+    d = hg.repository(ui, src).listkeys('trees')
+    i = 0
+    n = len(d)
+    while i < n:
+        istr = str(i)
+        ui.write("%s: %s\n" % (istr, d[istr]))
+        i += 1
+    return 0
 
 # ----------------------------- mercurial linkage ------------------------------
 
@@ -474,17 +480,17 @@ commands.norepo += ' tclone tversion tdebugkeys'
 
 def _treeslistkeys(repo):
     # trees are ordered, so the keys are the non-negative integers.
-    s = {}
+    d = {}
     i = 0
     try:
         for line in repo.opener('trees'):
-            s[("%d" % i)] = line.rstrip('\n\r')
+            d[("%d" % i)] = line.rstrip('\n\r')
             i += 1
-        return s
+        return d
     except:
         return {}
 
 def reposetup(ui, repo):
-    if r.capable('pushkey'):
+    if repo.capable('pushkey'):
         # Pushing keys is disabled; unclear whether/how it should work.
         pushkey.register('trees', lambda *x: False, _treeslistkeys)
