@@ -32,6 +32,7 @@ import subprocess
 
 from mercurial import cmdutil
 from mercurial import commands
+from mercurial import extensions
 from mercurial import hg
 from mercurial import pushkey
 from mercurial import ui
@@ -284,6 +285,20 @@ def config(ui, repo, *subtrees, **opts):
             l = _shortpaths(repo.root, _walk(ui, repo, {}))[1:]
         return _writeconfig(repo, l)
 
+def diff(ui, repo, *args, **opts):
+    '''diff repository (or selected files)'''
+    _checklocal(repo)
+    return _docmd1(_origcmd('diff'), ui, repo, *args, **opts)
+
+def heads(ui, repo, *branchrevs, **opts):
+    '''show current repository heads or show branch heads'''
+    _checklocal(repo)
+    st = opts.get('subtrees')
+    repocount = len(_list(ui, repo, st and {'subtrees': st} or {}))
+    rc = _docmd1(_origcmd('heads'), ui, repo, *branchrevs, **opts)
+    # return 0 if any of the repos have matching heads; 1 otherwise.
+    return int(rc == repocount)
+
 def incoming(ui, repo, remote="default", **opts):
     '''show new changesets found in source'''
     _checklocal(repo)
@@ -328,6 +343,11 @@ def list(ui, repo, **opts):
         ui.write(subtree + '\n')
     return 0
 
+def log(ui, repo, *args, **opts):
+    '''show revision history of entire repository or files'''
+    _checklocal(repo)
+    return _docmd1(_origcmd('log'), ui, repo, *args, **opts)
+
 def outgoing(ui, repo, remote=None, **opts):
     '''show changesets not found in the destination'''
     _checklocal(repo)
@@ -337,6 +357,10 @@ def outgoing(ui, repo, remote=None, **opts):
     rc = _docmd2(_origcmd('outgoing'), ui, repo, remote, adjust, **opts)
     # return 0 if any of the repos have outgoing changes; 1 otherwise.
     return int(rc == repocount)
+
+def parents(ui, repo, filename=None, **opts):
+    _checklocal(repo)
+    return _docmd1(_origcmd('parents'), ui, repo, filename, **opts)
 
 def _paths(cmd, ui, repo, search=None, **opts):
     ui.status('[%s]:\n' % repo.root)
@@ -380,10 +404,20 @@ def status(ui, repo, *args, **opts):
     _checklocal(repo)
     return _docmd1(_origcmd('status'), ui, repo, *args, **opts)
 
+def summary(ui, repo, **opts):
+    """summarize working directory state"""
+    _checklocal(repo)
+    return _docmd1(_origcmd('summary'), ui, repo, **opts)
+
 def tag(ui, repo, name1, *names, **opts):
     '''add one or more tags for the current or given revision'''
     _checklocal(repo)
     return _docmd1(_origcmd('tag'), ui, repo, name1, *names, **opts)
+
+def tip(ui, repo, **opts):
+    '''show the tip revision'''
+    _checklocal(repo)
+    return _docmd1(_origcmd('tip'), ui, repo, **opts)
 
 def _update(cmd, ui, repo, node=None, rev=None, clean=False, date=None,
             check=False, **opts):
@@ -408,6 +442,12 @@ def update(ui, repo, node=None, rev=None, clean=False, date=None, check=False,
 def version(ui, **opts):
     '''show version information'''
     ui.status('trees extension (version 0.7)\n')
+
+def defpath(ui, repo, peer=None, peer_push=None, **opts):
+    '''examine and manipulate default path settings for a tree.'''
+    def walker(r):
+        return _list(ui, r, opts)
+    return defpath_mod.defpath(ui, repo, peer, peer_push, walker, opts)
 
 def debugkeys(ui, src, **opts):
     d = hg.repository(ui, src).listkeys('trees')
@@ -453,28 +493,49 @@ def _newcte(origcmd, newfunc, extraopts = [], synopsis = None):
     return (newfunc, cte[1] + extraopts, synopsis)
 
 def extsetup(ui = None):
-    global cmdtable
     # The cmdtable is initialized here to pick up options added by other
     # extensions (e.g., rebase, bookmarks).
     #
     # Commands tagged with '^' are listed by 'hg help'.
+    global defpath_mod
+    defpath_mod = None
+    defpath_opts = []
+    try:
+        defpath_mod = extensions.find('defpath')
+        defpath_opts = __builtin__.list(defpath_mod.opts)
+        defpath_doc = getattr(defpath_mod, 'common_docstring', '')
+        if defpath_doc:
+            defpath.__doc__ += defpath_doc
+    except:
+        pass
+
+    global cmdtable
     cmdtable = {
         '^tclone': _newcte('clone', clone, subtreesopt,
                            _('[OPTION]... SOURCE [DEST [SUBTREE]...]')),
         'tcommand': (command, commandopts, _('command [arg] ...')),
         'tconfig': (config, configopts, _('[OPTION]... [SUBTREE]...')),
+        'tdiff': _newcte('diff', diff, subtreesopt),
+        'theads': _newcte('heads', heads, subtreesopt),
         'tincoming': _newcte('incoming', incoming, subtreesopt),
         'toutgoing': _newcte('outgoing', outgoing, subtreesopt),
         'tlist': (list, listopts, _('[OPTION]...')),
+        '^tlog': _newcte('log', log, subtreesopt),
+        'tparents': _newcte('parents', parents, subtreesopt),
         'tpaths': _newcte('paths', paths, subtreesopt),
         '^tpull': _newcte('pull', pull, subtreesopt),
         '^tpush': _newcte('push', push, subtreesopt),
         '^tstatus': _newcte('status', status, subtreesopt),
         '^tupdate': _newcte('update', update, subtreesopt),
         'ttag': _newcte('tag', tag, subtreesopt),
+        'ttip': _newcte('tip', tip, subtreesopt),
         'tversion': (version, [], ''),
         'tdebugkeys': (debugkeys, [], '')
     }
+    if defpath_mod:
+        cmdtable['tdefpath'] = (defpath, defpath_opts, _(''))
+    if getattr(commands, 'summary', None):
+        cmdtable['tsummary'] = _newcte('summary', summary, subtreesopt)
 
 commands.norepo += ' tclone tversion tdebugkeys'
 

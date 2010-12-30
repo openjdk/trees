@@ -569,10 +569,32 @@ Pull, merge, push.
   adding file changes
   added 2 changesets with 1 changes to 1 files
 
-  $ for sr in s2 s2/s2.2 s2/s2.2/s2.2.1
-  > do
-  >     hg -R r1/$sr tip
-  > done
+  $ hg -R r1 ttip
+  [$TESTTMP/r1]:
+  changeset:   0:8d066171e5de
+  tag:         tip
+  user:        test
+  date:        Thu Jan 01 00:00:00 1970 +0000
+  summary:     r1
+  
+  
+  [$TESTTMP/r1/s1]:
+  changeset:   0:30b4bf8cd1c5
+  tag:         tip
+  user:        test
+  date:        Thu Jan 01 00:00:00 1970 +0000
+  summary:     r1/s1
+  
+  
+  [$TESTTMP/r1/s1/s1.1 with spaces]:
+  changeset:   0:898fb1dda185
+  tag:         tip
+  user:        test
+  date:        Thu Jan 01 00:00:00 1970 +0000
+  summary:     r1/s1/s1.1 with spaces
+  
+  
+  [$TESTTMP/r1/s2]:
   changeset:   3:3d0a1cb52bf2
   tag:         tip
   parent:      2:02ac722f677c
@@ -581,6 +603,16 @@ Pull, merge, push.
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     merge with r1
   
+  
+  [$TESTTMP/r1/s2/s2.1]:
+  changeset:   0:ed63cc458a75
+  tag:         tip
+  user:        test
+  date:        Thu Jan 01 00:00:00 1970 +0000
+  summary:     r1/s2/s2.1
+  
+  
+  [$TESTTMP/r1/s2/s2.2]:
   changeset:   3:76fc250030c4
   tag:         tip
   parent:      2:b9139c2dc588
@@ -589,6 +621,8 @@ Pull, merge, push.
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     merge with r1
   
+  
+  [$TESTTMP/r1/s2/s2.2/s2.2.1]:
   changeset:   3:015d691fdafe
   tag:         tip
   parent:      2:c0662346bf9f
@@ -673,7 +707,7 @@ Test tree aliases.
   [$TESTTMP/r135/s5]:
   default = $TESTTMP/rflat/s5
 
-Test tcommand, tstatus, ttag, tupdate.
+Test tcommand, tparents, tstatus, ttag, tupdate.
 
   $ hg tlist -R r135
   $TESTTMP/r135
@@ -693,7 +727,7 @@ Test tcommand, tstatus, ttag, tupdate.
   [$TESTTMP/r135/s5]:
   $TESTTMP/r135/s5
   $ hg tstat -R r135 -q
-  $ hg tcomm -R r135 -q -- touch xyz
+  $ hg tcomm -R r135 -q -- sh -c 'echo foo > xyz'
   $ hg tstat -R r135
   [$TESTTMP/r135]:
   ? xyz
@@ -719,6 +753,34 @@ Test tcommand, tstatus, ttag, tupdate.
   
   [$TESTTMP/r135/s5]:
   A xyz
+  $ hg tdiff -R r135 --nodates
+  [$TESTTMP/r135]:
+  diff -r cb6a7267a0e3 xyz
+  --- /dev/null
+  +++ b/xyz
+  @@ -0,0 +1,1 @@
+  +foo
+  
+  [$TESTTMP/r135/s1]:
+  diff -r 5be808557fcc xyz
+  --- /dev/null
+  +++ b/xyz
+  @@ -0,0 +1,1 @@
+  +foo
+  
+  [$TESTTMP/r135/s3]:
+  diff -r 16d0c651073b xyz
+  --- /dev/null
+  +++ b/xyz
+  @@ -0,0 +1,1 @@
+  +foo
+  
+  [$TESTTMP/r135/s5]:
+  diff -r 87710fdf686c xyz
+  --- /dev/null
+  +++ b/xyz
+  @@ -0,0 +1,1 @@
+  +foo
   $ hg tcomm -R r135 -q -- hg commit -m 'add xyz'
   $ hg tstat -R r135 -q
   $ hg ttag  -R r135 -d '0 0' xyz
@@ -729,15 +791,15 @@ Test tcommand, tstatus, ttag, tupdate.
   [$TESTTMP/r135/s3]:
   
   [$TESTTMP/r135/s5]:
-  $ hg tcomm -R r135 -- hg log -l 2
+  $ hg tlog  -R r135 -l 2
   [$TESTTMP/r135]:
-  changeset:   2:83290f94fb2b
+  changeset:   2:4ced22f7af69
   tag:         tip
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
-  summary:     Added tag xyz for changeset b0a2d2266db8
+  summary:     Added tag xyz for changeset 7daa537724f7
   
-  changeset:   1:b0a2d2266db8
+  changeset:   1:7daa537724f7
   tag:         xyz
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -745,13 +807,13 @@ Test tcommand, tstatus, ttag, tupdate.
   
   
   [$TESTTMP/r135/s1]:
-  changeset:   2:5e30e7223a0b
+  changeset:   2:4031d5de603a
   tag:         tip
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
-  summary:     Added tag xyz for changeset f1afd954409a
+  summary:     Added tag xyz for changeset 7ee3e2b9a80f
   
-  changeset:   1:f1afd954409a
+  changeset:   1:7ee3e2b9a80f
   tag:         xyz
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -759,13 +821,13 @@ Test tcommand, tstatus, ttag, tupdate.
   
   
   [$TESTTMP/r135/s3]:
-  changeset:   2:8c6b313fb499
+  changeset:   2:75a448015ccf
   tag:         tip
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
-  summary:     Added tag xyz for changeset e16257c3cacc
+  summary:     Added tag xyz for changeset e0644cb753a1
   
-  changeset:   1:e16257c3cacc
+  changeset:   1:e0644cb753a1
   tag:         xyz
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
@@ -773,40 +835,104 @@ Test tcommand, tstatus, ttag, tupdate.
   
   
   [$TESTTMP/r135/s5]:
-  changeset:   2:c2c28aac7653
+  changeset:   2:764efa1ac652
   tag:         tip
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
-  summary:     Added tag xyz for changeset add70ffe0e61
+  summary:     Added tag xyz for changeset 3abbfd61fcf3
   
-  changeset:   1:add70ffe0e61
+  changeset:   1:3abbfd61fcf3
   tag:         xyz
   user:        test
   date:        Thu Jan 01 00:00:00 1970 +0000
   summary:     add xyz
   
-  $ hg tup   -R r135 null
+  $ hg tup   -R r135 1
   [$TESTTMP/r135]:
-  0 files updated, 0 files merged, 3 files removed, 0 files unresolved
+  0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   
   [$TESTTMP/r135/s1]:
-  0 files updated, 0 files merged, 3 files removed, 0 files unresolved
+  0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   
   [$TESTTMP/r135/s3]:
-  0 files updated, 0 files merged, 3 files removed, 0 files unresolved
+  0 files updated, 0 files merged, 1 files removed, 0 files unresolved
   
   [$TESTTMP/r135/s5]:
-  0 files updated, 0 files merged, 3 files removed, 0 files unresolved
+  0 files updated, 0 files merged, 1 files removed, 0 files unresolved
+  $ hg tparents -R r135
+  [$TESTTMP/r135]:
+  changeset:   1:7daa537724f7
+  tag:         xyz
+  user:        test
+  date:        Thu Jan 01 00:00:00 1970 +0000
+  summary:     add xyz
+  
+  
+  [$TESTTMP/r135/s1]:
+  changeset:   1:7ee3e2b9a80f
+  tag:         xyz
+  user:        test
+  date:        Thu Jan 01 00:00:00 1970 +0000
+  summary:     add xyz
+  
+  
+  [$TESTTMP/r135/s3]:
+  changeset:   1:e0644cb753a1
+  tag:         xyz
+  user:        test
+  date:        Thu Jan 01 00:00:00 1970 +0000
+  summary:     add xyz
+  
+  
+  [$TESTTMP/r135/s5]:
+  changeset:   1:3abbfd61fcf3
+  tag:         xyz
+  user:        test
+  date:        Thu Jan 01 00:00:00 1970 +0000
+  summary:     add xyz
+  
   $ hg tup   -R r135
   [$TESTTMP/r135]:
-  3 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   
   [$TESTTMP/r135/s1]:
-  3 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   
   [$TESTTMP/r135/s3]:
-  3 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   
   [$TESTTMP/r135/s5]:
-  3 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  $ hg tparents -R r135
+  [$TESTTMP/r135]:
+  changeset:   2:4ced22f7af69
+  tag:         tip
+  user:        test
+  date:        Thu Jan 01 00:00:00 1970 +0000
+  summary:     Added tag xyz for changeset 7daa537724f7
+  
+  
+  [$TESTTMP/r135/s1]:
+  changeset:   2:4031d5de603a
+  tag:         tip
+  user:        test
+  date:        Thu Jan 01 00:00:00 1970 +0000
+  summary:     Added tag xyz for changeset 7ee3e2b9a80f
+  
+  
+  [$TESTTMP/r135/s3]:
+  changeset:   2:75a448015ccf
+  tag:         tip
+  user:        test
+  date:        Thu Jan 01 00:00:00 1970 +0000
+  summary:     Added tag xyz for changeset e0644cb753a1
+  
+  
+  [$TESTTMP/r135/s5]:
+  changeset:   2:764efa1ac652
+  tag:         tip
+  user:        test
+  date:        Thu Jan 01 00:00:00 1970 +0000
+  summary:     Added tag xyz for changeset 3abbfd61fcf3
+  
 
