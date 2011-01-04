@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2010, 2011, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -160,8 +160,8 @@ def _walk(ui, repo, opts):
             l += [dirpath]
     return sorted(l)
 
-def _writeconfig(repo, subtrees):
-    f = open(repo.join('trees'), 'w')
+def _writeconfig(repo, subtrees, append = False):
+    f = open(repo.join('trees'), append and 'a' or 'w')
     try:
         if subtrees:
             f.write('\n'.join(subtrees) + '\n')
@@ -171,32 +171,62 @@ def _writeconfig(repo, subtrees):
 
 # ---------------- commands and associated recursion helpers -------------------
 
+def _clonerepo(ui, source, dest, opts):
+    _makeparentdir(dest)
+    # Copied from mercurial/hg.py; need the returned dest repo.
+    return hg.clone(hg.remoteui(ui, opts), source, dest,
+                    pull=opts.get('pull'),
+                    stream=opts.get('uncompressed'),
+                    rev=opts.get('rev'),
+                    update=opts.get('updaterev') or not opts.get('noupdate'),
+                    branch=opts.get('branch'))
+
+def _skiprepo(ui, source, dest):
+    src = None
+    try:
+        src = hg.repository(ui, source)
+    except:
+        class fakerepo(object):
+            def __init__(self, ui, path):
+                self.ui = ui
+                self._path = path
+            def capable(self, s):
+                return False
+            def local(self):
+                return True
+            def wjoin(self, path):
+                return os.path.join(self._path, path)
+        src = fakerepo(ui, source)
+    return (src, hg.repository(ui, dest))
+
+def _clonesubtrees(ui, src, dst, opts):
+    subtrees = []
+    for src, subtree in _subtreegen(src.ui, src, opts):
+        ui.status('\n')
+        _clone(ui, _subtreejoin(src, subtree), dst.wjoin(subtree), opts)
+        subtrees.append(subtree)
+    return subtrees
+
+def _clone(ui, source, dest, opts):
+    ui.status('cloning %s\n' % source)
+    src, dst = _clonerepo(ui, source, dest, opts)
+    ui.status(_('created %s\n') % dst.root)
+    subtrees = _clonesubtrees(ui, src, dst, opts)
+    _writeconfig(dst, subtrees)
+
 def clone(ui, source, dest=None, *subtreeargs, **opts):
     '''copy one or more existing repositories to create a tree'''
     if subtreeargs:
         s = __builtin__.list(subtreeargs)
         s.extend(opts.get('subtrees')) # Note:  extend does not return a value
         opts['subtrees'] = s
-
-    ui.status('cloning %s\n' % source)
-    _makeparentdir(dest)
-    # Copied from mercurial/hg.py; need the returned dest repo.
-    r = hg.clone(hg.remoteui(ui, opts), source, dest,
-                 pull=opts.get('pull'),
-                 stream=opts.get('uncompressed'),
-                 rev=opts.get('rev'),
-                 update=opts.get('updaterev') or not opts.get('noupdate'),
-                 branch=opts.get('branch'))
-    src = r[0]
-    dst = r[1]
-    ui.status(_('created %s\n') % dst.root)
-
-    subtrees = []
-    for src, subtree in _subtreegen(src.ui, src, opts):
-        ui.status('\n')
-        clone(ui, _subtreejoin(src, subtree), dst.wjoin(subtree), **opts)
-        subtrees.append(subtree)
-    _writeconfig(dst, subtrees)
+    if not opts.get('skiproot'):
+        _clone(ui, source, dest, opts)
+    else:
+        ui.status('skipping root %s\n' % source)
+        src, dst = _skiprepo(ui, source, dest)
+        subtrees = _clonesubtrees(ui, src, dst, opts)
+        _writeconfig(dst, subtrees, True)
     return 0
 
 def _command(ui, repo, argv, stop, opts):
@@ -468,6 +498,9 @@ subtreesopt = [('', 'subtrees', [],
 walkopt = [('w', 'walk', False,
             _('walk the filesystem to discover subtrees'))]
 
+cloneopts = [('', 'skiproot', False,
+              _('do not clone the root repo in the tree'))
+            ] + subtreesopt
 commandopts = [('', 'stop', False,
                 _('stop if command returns non-zero'))
               ] + subtreesopt
@@ -511,7 +544,7 @@ def extsetup(ui = None):
 
     global cmdtable
     cmdtable = {
-        '^tclone': _newcte('clone', clone, subtreesopt,
+        '^tclone': _newcte('clone', clone, cloneopts,
                            _('[OPTION]... SOURCE [DEST [SUBTREE]...]')),
         'tcommand': (command, commandopts, _('command [arg] ...')),
         'tconfig': (config, configopts, _('[OPTION]... [SUBTREE]...')),

@@ -19,7 +19,10 @@ Create test repos.
 
   $ hg tclone -q r1 r2
   $ hg tclone -q r1 r3 s1 file:$TESTTMP/r2 s2
-  $ hg tclone    r1 r4 s1 file:$TESTTMP/r3 s2
+
+Clone r4 in two steps using skiproot.
+
+  $ hg tclone r1 r4 s1
   cloning r1
   updating (to branch default|working directory) (re)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
@@ -34,6 +37,9 @@ Create test repos.
   updating (to branch default|working directory) (re)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   created $TESTTMP/r4/s1/s1.1 with spaces
+
+  $ hg tclone --skiproot r3 r4 s2
+  skipping root r3
   
   cloning $TESTTMP/r3/s2
   updating (to branch default|working directory) (re)
@@ -55,6 +61,70 @@ Create test repos.
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   created $TESTTMP/r4/s2/s2.2/s2.2.1
 
+Clone using skiproot without explicitly listing subtrees.
+
+  $ hg tclone r1/s1 rx
+  cloning r1/s1
+  updating (to branch default|working directory) (re)
+  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  created $TESTTMP/rx
+  
+  cloning $TESTTMP/r1/s1/s1.1 with spaces
+  updating (to branch default|working directory) (re)
+  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  created $TESTTMP/rx/s1.1 with spaces
+
+  $ hg tclone --skiproot rflat rx
+  skipping root rflat
+  
+  cloning $TESTTMP/rflat/s1
+  updating (to branch default|working directory) (re)
+  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  created $TESTTMP/rx/s1
+  
+  cloning $TESTTMP/rflat/s2
+  updating (to branch default|working directory) (re)
+  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  created $TESTTMP/rx/s2
+  
+  cloning $TESTTMP/rflat/s3
+  updating (to branch default|working directory) (re)
+  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  created $TESTTMP/rx/s3
+  
+  cloning $TESTTMP/rflat/s4
+  updating (to branch default|working directory) (re)
+  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  created $TESTTMP/rx/s4
+  
+  cloning $TESTTMP/rflat/s5
+  updating (to branch default|working directory) (re)
+  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  created $TESTTMP/rx/s5
+  
+  cloning $TESTTMP/rflat/s6
+  updating (to branch default|working directory) (re)
+  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  created $TESTTMP/rx/s6
+
+Clone with skiproot where the source is not a repository.
+
+  $ mkdir not-a-repo
+  $ hg init not-a-repo/x1
+  $ hg init not-a-repo/x2
+  $ hg tclone --skiproot not-a-repo rx x1 x2
+  skipping root not-a-repo
+  
+  cloning not-a-repo/x1
+  updating (to branch default|working directory) (re)
+  0 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  created $TESTTMP/rx/x1
+  
+  cloning not-a-repo/x2
+  updating (to branch default|working directory) (re)
+  0 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  created $TESTTMP/rx/x2
+
 List the configuration.
 
   $ hg tconfig -R rflat
@@ -68,6 +138,17 @@ List the configuration.
   $ hg tconfig -R r1
   s1
   s2
+
+  $ hg tconfig -R rx
+  s1.1 with spaces
+  s1
+  s2
+  s3
+  s4
+  s5
+  s6
+  x1
+  x2
 
   $ for r in r1 r2 r3 r4
   > do
