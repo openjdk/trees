@@ -60,11 +60,28 @@ def _expandsubtrees(ui, subtrees):
                 l += [subtree]
     return l
 
+_splitui = None
+
+def _splitsubtrees(l):
+    global _splitui
+    res = []
+    for s in l:
+        if "'" in s or '"' in s:
+            # Use ui.configlist() for quoted strings; requires hg 1.6 or later.
+            if not _splitui:
+                _splitui = ui.ui()
+            _splitui.setconfig('x', 'x', s)
+            res += _splitui.configlist('x', 'x')
+        else:
+            res += s.split()
+    return res
+
 def _subtreelist(ui, repo, opts):
     l = opts.get('subtrees')
     if l:
         del opts['subtrees']
-        return _expandsubtrees(ui, l)
+        cansplit = ui.configbool('trees', 'splitargs', True)
+        return _expandsubtrees(ui, cansplit and _splitsubtrees(l) or l)
     l = []
     try:
         for line in repo.opener('trees'):

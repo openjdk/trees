@@ -33,3 +33,20 @@ This requires mercurial w/pushkey support (1.6 and later).
   0: s1 has a space
   1: s2
   2: s3 has a space
+
+Test splitting of --subtrees args and quoting.
+
+This requires mercurial with quoted config item support (1.6 and later).
+
+  $ hg tpaths -R r1 --subtrees '"s1 has a space" s2' --config trees.splitargs=0
+  [$TESTTMP/r1]:
+  
+  abort: repository $TESTTMP/r1/"s1 has a space" s2 not found!
+  [255]
+  $ hg tpaths -R r1 --subtrees '"s1 has a space" s2' --config trees.splitargs=1
+  [$TESTTMP/r1]:
+  
+  [$TESTTMP/r1/s1 has a space]:
+  
+  [$TESTTMP/r1/s2]:
+

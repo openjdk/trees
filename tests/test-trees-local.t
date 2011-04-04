@@ -6,15 +6,15 @@ Enable the extension; the path to it should be in $EXTENSION_PY.
 Create test repos.
 
   $ for r in rflat rflat/s1 rflat/s2 rflat/s3 rflat/s4 rflat/s5 rflat/s6 \
-  > r1 r1/s1 'r1/s1/s1.1 with spaces' r1/s2 r1/s2/s2.1 r1/s2/s2.2 \
-  > r1/s2/s2.2/s2.2.1
+  > r1 r1/s1 'r1/s1/s1.1 with spaces' r1/s1/s1.2 'r1/s1/s1.3 with spaces' \
+  > r1/s2 r1/s2/s2.1 r1/s2/s2.2 r1/s2/s2.2/s2.2.1
   > do
   >     hg init "$r"
   >     echo "$r" > "$r/x" && hg -R "$r" ci -qAm "$r"
   > done
   $ hg tconfig -R rflat --set --walk
   $ hg tconfig -R r1    --set s1 s2
-  $ hg tconfig -R r1/s1 --set 's1.1 with spaces'
+  $ hg tconfig -R r1/s1 --set 's1.1 with spaces' s1.2 's1.3 with spaces'
   $ hg tconfig -R r1/s2 --set --walk
 
   $ hg tclone -q r1 r2
@@ -37,6 +37,16 @@ Clone r4 in two steps using skiproot.
   updating (to branch default|working directory) (re)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   created $TESTTMP/r4/s1/s1.1 with spaces
+  
+  cloning $TESTTMP/r1/s1/s1.2
+  updating (to branch default|working directory) (re)
+  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  created $TESTTMP/r4/s1/s1.2
+  
+  cloning $TESTTMP/r1/s1/s1.3 with spaces
+  updating (to branch default|working directory) (re)
+  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  created $TESTTMP/r4/s1/s1.3 with spaces
 
   $ hg tclone --skiproot r3 r4 s2
   skipping root r3
@@ -73,6 +83,16 @@ Clone using skiproot without explicitly listing subtrees.
   updating (to branch default|working directory) (re)
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   created $TESTTMP/rx/s1.1 with spaces
+  
+  cloning $TESTTMP/r1/s1/s1.2
+  updating (to branch default|working directory) (re)
+  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  created $TESTTMP/rx/s1.2
+  
+  cloning $TESTTMP/r1/s1/s1.3 with spaces
+  updating (to branch default|working directory) (re)
+  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  created $TESTTMP/rx/s1.3 with spaces
 
   $ hg tclone --skiproot rflat rx
   skipping root rflat
@@ -141,6 +161,8 @@ List the configuration.
 
   $ hg tconfig -R rx
   s1.1 with spaces
+  s1.2
+  s1.3 with spaces
   s1
   s2
   s3
@@ -160,6 +182,8 @@ List the configuration.
   $TESTTMP/r1
   $TESTTMP/r1/s1
   $TESTTMP/r1/s1/s1.1 with spaces
+  $TESTTMP/r1/s1/s1.2
+  $TESTTMP/r1/s1/s1.3 with spaces
   $TESTTMP/r1/s2
   $TESTTMP/r1/s2/s2.1
   $TESTTMP/r1/s2/s2.2
@@ -169,6 +193,10 @@ List the configuration.
   [$TESTTMP/r1/s1]:
   
   [$TESTTMP/r1/s1/s1.1 with spaces]:
+  
+  [$TESTTMP/r1/s1/s1.2]:
+  
+  [$TESTTMP/r1/s1/s1.3 with spaces]:
   
   [$TESTTMP/r1/s2]:
   
@@ -181,6 +209,8 @@ List the configuration.
   $TESTTMP/r2
   $TESTTMP/r2/s1
   $TESTTMP/r2/s1/s1.1 with spaces
+  $TESTTMP/r2/s1/s1.2
+  $TESTTMP/r2/s1/s1.3 with spaces
   $TESTTMP/r2/s2
   $TESTTMP/r2/s2/s2.1
   $TESTTMP/r2/s2/s2.2
@@ -193,6 +223,12 @@ List the configuration.
   
   [$TESTTMP/r2/s1/s1.1 with spaces]:
   default = $TESTTMP/r1/s1/s1.1 with spaces
+  
+  [$TESTTMP/r2/s1/s1.2]:
+  default = $TESTTMP/r1/s1/s1.2
+  
+  [$TESTTMP/r2/s1/s1.3 with spaces]:
+  default = $TESTTMP/r1/s1/s1.3 with spaces
   
   [$TESTTMP/r2/s2]:
   default = $TESTTMP/r1/s2
@@ -209,6 +245,8 @@ List the configuration.
   $TESTTMP/r3
   $TESTTMP/r3/s1
   $TESTTMP/r3/s1/s1.1 with spaces
+  $TESTTMP/r3/s1/s1.2
+  $TESTTMP/r3/s1/s1.3 with spaces
   $TESTTMP/r3/s2
   $TESTTMP/r3/s2/s2.1
   $TESTTMP/r3/s2/s2.2
@@ -221,6 +259,12 @@ List the configuration.
   
   [$TESTTMP/r3/s1/s1.1 with spaces]:
   default = $TESTTMP/r1/s1/s1.1 with spaces
+  
+  [$TESTTMP/r3/s1/s1.2]:
+  default = $TESTTMP/r1/s1/s1.2
+  
+  [$TESTTMP/r3/s1/s1.3 with spaces]:
+  default = $TESTTMP/r1/s1/s1.3 with spaces
   
   [$TESTTMP/r3/s2]:
   default = $TESTTMP/r2/s2
@@ -237,6 +281,8 @@ List the configuration.
   $TESTTMP/r4
   $TESTTMP/r4/s1
   $TESTTMP/r4/s1/s1.1 with spaces
+  $TESTTMP/r4/s1/s1.2
+  $TESTTMP/r4/s1/s1.3 with spaces
   $TESTTMP/r4/s2
   $TESTTMP/r4/s2/s2.1
   $TESTTMP/r4/s2/s2.2
@@ -249,6 +295,12 @@ List the configuration.
   
   [$TESTTMP/r4/s1/s1.1 with spaces]:
   default = $TESTTMP/r1/s1/s1.1 with spaces
+  
+  [$TESTTMP/r4/s1/s1.2]:
+  default = $TESTTMP/r1/s1/s1.2
+  
+  [$TESTTMP/r4/s1/s1.3 with spaces]:
+  default = $TESTTMP/r1/s1/s1.3 with spaces
   
   [$TESTTMP/r4/s2]:
   default = $TESTTMP/r3/s2
@@ -312,6 +364,8 @@ Test tconfig command.
   $TESTTMP/r4
   $TESTTMP/r4/s1
   $TESTTMP/r4/s1/s1.1 with spaces
+  $TESTTMP/r4/s1/s1.2
+  $TESTTMP/r4/s1/s1.3 with spaces
   $TESTTMP/r4/s2
   $TESTTMP/r4/s2/s2.1
   $TESTTMP/r4/s2/s2.2
@@ -320,6 +374,8 @@ Test tconfig command.
   $TESTTMP/r4
   $TESTTMP/r4/s1
   $TESTTMP/r4/s1/s1.1 with spaces
+  $TESTTMP/r4/s1/s1.2
+  $TESTTMP/r4/s1/s1.3 with spaces
   $TESTTMP/r4/s2
   $TESTTMP/r4/s2/s2.1
   $TESTTMP/r4/s2/s2.2
@@ -354,6 +410,16 @@ Check incoming & outgoing
   
   [$TESTTMP/r1/s1/s1.1 with spaces]:
   comparing with r2/s1/s1.1 with spaces
+  searching for changes
+  no changes found
+  
+  [$TESTTMP/r1/s1/s1.2]:
+  comparing with r2/s1/s1.2
+  searching for changes
+  no changes found
+  
+  [$TESTTMP/r1/s1/s1.3 with spaces]:
+  comparing with r2/s1/s1.3 with spaces
   searching for changes
   no changes found
   
@@ -407,6 +473,16 @@ Check incoming & outgoing
   searching for changes
   no changes found
   
+  [$TESTTMP/r2/s1/s1.2]:
+  comparing with $TESTTMP/r1/s1/s1.2
+  searching for changes
+  no changes found
+  
+  [$TESTTMP/r2/s1/s1.3 with spaces]:
+  comparing with $TESTTMP/r1/s1/s1.3 with spaces
+  searching for changes
+  no changes found
+  
   [$TESTTMP/r2/s2]:
   comparing with $TESTTMP/r1/s2
   searching for changes
@@ -454,6 +530,16 @@ Check incoming & outgoing
   
   [$TESTTMP/r1/s1/s1.1 with spaces]:
   comparing with r2/s1/s1.1 with spaces
+  searching for changes
+  no changes found
+  
+  [$TESTTMP/r1/s1/s1.2]:
+  comparing with r2/s1/s1.2
+  searching for changes
+  no changes found
+  
+  [$TESTTMP/r1/s1/s1.3 with spaces]:
+  comparing with r2/s1/s1.3 with spaces
   searching for changes
   no changes found
   
@@ -507,6 +593,16 @@ Check incoming & outgoing
   searching for changes
   no changes found
   
+  [$TESTTMP/r2/s1/s1.2]:
+  comparing with $TESTTMP/r1/s1/s1.2
+  searching for changes
+  no changes found
+  
+  [$TESTTMP/r2/s1/s1.3 with spaces]:
+  comparing with $TESTTMP/r1/s1/s1.3 with spaces
+  searching for changes
+  no changes found
+  
   [$TESTTMP/r2/s2]:
   comparing with $TESTTMP/r1/s2
   searching for changes
@@ -557,6 +653,16 @@ Pull, merge, push.
   
   [$TESTTMP/r2/s1/s1.1 with spaces]:
   pulling from $TESTTMP/r1/s1/s1.1 with spaces
+  searching for changes
+  no changes found
+  
+  [$TESTTMP/r2/s1/s1.2]:
+  pulling from $TESTTMP/r1/s1/s1.2
+  searching for changes
+  no changes found
+  
+  [$TESTTMP/r2/s1/s1.3 with spaces]:
+  pulling from $TESTTMP/r1/s1/s1.3 with spaces
   searching for changes
   no changes found
   
@@ -621,6 +727,16 @@ Pull, merge, push.
   searching for changes
   no changes found
   
+  [$TESTTMP/r2/s1/s1.2]:
+  pushing to $TESTTMP/r1/s1/s1.2
+  searching for changes
+  no changes found
+  
+  [$TESTTMP/r2/s1/s1.3 with spaces]:
+  pushing to $TESTTMP/r1/s1/s1.3 with spaces
+  searching for changes
+  no changes found
+  
   [$TESTTMP/r2/s2]:
   pushing to $TESTTMP/r1/s2
   searching for changes
@@ -675,6 +791,22 @@ Pull, merge, push.
   summary:     r1/s1/s1.1 with spaces
   
   
+  [$TESTTMP/r1/s1/s1.2]:
+  changeset:   0:7457850caaf5
+  tag:         tip
+  user:        test
+  date:        Thu Jan 01 00:00:00 1970 +0000
+  summary:     r1/s1/s1.2
+  
+  
+  [$TESTTMP/r1/s1/s1.3 with spaces]:
+  changeset:   0:7c1472d16a1f
+  tag:         tip
+  user:        test
+  date:        Thu Jan 01 00:00:00 1970 +0000
+  summary:     r1/s1/s1.3 with spaces
+  
+  
   [$TESTTMP/r1/s2]:
   changeset:   3:3d0a1cb52bf2
   tag:         tip
@@ -727,6 +859,16 @@ Run tin & tout again (should be nothing incoming) to check exit code.
   
   [$TESTTMP/r2/s1/s1.1 with spaces]:
   comparing with $TESTTMP/r1/s1/s1.1 with spaces
+  searching for changes
+  no changes found
+  
+  [$TESTTMP/r2/s1/s1.2]:
+  comparing with $TESTTMP/r1/s1/s1.2
+  searching for changes
+  no changes found
+  
+  [$TESTTMP/r2/s1/s1.3 with spaces]:
+  comparing with $TESTTMP/r1/s1/s1.3 with spaces
   searching for changes
   no changes found
   
