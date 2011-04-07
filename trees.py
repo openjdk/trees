@@ -21,8 +21,92 @@
 # questions.
 #
 
-'''manage loosely-coupled nested repositories
-'''
+"""manage loosely-coupled nested repositories
+
+A 'tree' is simply a repository that may contain other repositories (or other
+trees) nested within its working directory.  This extension provides commands
+that operate on an entire tree, or on selected trees within it.
+
+Each tree stores a list of the repositories contained within it in a
+non-versioned file, .hg/trees.  The file lists the path to each contained tree,
+relative to the root, one per line.  The file is created when a tree is cloned,
+and can be modified using the tconfig command.  It is not updated when pushing
+or pulling changesets (tpush, tpull).
+
+The extension is usable on the client even if the hg server does not have the
+trees extension enabled; it simply requires a bit more typing when cloning
+repos.  Each repo in the tree maintains its own path information in .hg/hgrc, so
+that repositories from different locations can be combined into a single tree.
+
+The following example creates a tree called 'myproj' that includes four nested
+repositories ('src', 'docs', 'images' and 'styles') with the last two coming
+from a different server.  If the hg servers have the trees extension enabled::
+
+    $ hg tclone http://abc/proj myproj
+    $ hg tclone --skiproot http://xyz/pub myproj
+
+If the hg servers do not have the trees extension enabled, then simply append
+the desired contained repos (subtrees) to the command line::
+
+    $ hg tclone http://abc/proj myproj src docs
+    $ hg tclone --skiproot http://xyz/pub myproj images styles
+
+The above is shorthand for five clone operations (three from the first command,
+and two more from the second)::
+
+    $ hg clone http://abc/proj       myproj
+    $ hg clone http://abc/proj/src   myproj/src
+    $ hg clone http://abc/proj/docs  myproj/docs
+    $ hg clone http://xyz/pub/images myproj/images
+    $ hg clone http://xyz/pub/styles myproj/styles
+
+It also writes the tree configuration to myproj/.hg/trees.  Note that the same
+tree can also be created with a single tclone::
+
+    $ hg tclone http://abc/proj myproj src docs http://xyz/pub images styles
+
+More examples::
+
+Show the working directory status for each repo in the tree::
+
+    $ hg tstatus
+
+Pull upstream changes into each repo in the tree and update the working dir::
+
+    $ hg tpull -u
+
+Push local changes from each repo in the tree::
+
+    $ hg tpush
+
+List the tree configuration recursively::
+
+    $ hg tlist
+    /path/to/myproj
+    /path/to/myproj/src
+    /path/to/myproj/docs
+    /path/to/myproj/images
+    /path/to/myproj/styles
+
+You can create abbreviations for tree lists by adding a [trees] section to your
+hgrc file, e.g.::
+
+    [trees]
+    jdk-lt = jdk langtools
+    ojdk-all = corba hotspot jaxp jaxws jdk-lt
+
+which could be used like this:
+
+    $ hg tclone http://hg.openjdk.java.net/jdk7/jdk7 myjdk7 ojdk-all
+
+to create the myjdk7 tree which contains corba, hotspot, jaxp, jaxws, jdk and
+langtools repos.
+
+Show the working directory status, but only for the root repo plus the jdk and
+langtools repos::
+
+    $ hg tstatus --subtrees jdk-lt
+"""
 
 import __builtin__
 import inspect
@@ -44,10 +128,10 @@ def _checklocal(repo):
         raise util.Abort(_('repository is not local'))
 
 def _expandsubtrees(ui, subtrees):
-    '''Expand subtree 'aliases.'
+    """Expand subtree aliases.
 
     Each string in subtrees that has a like-named config entry in the [trees]
-    section is replaced by the right hand side of the config entry.'''
+    section is replaced by the right hand side of the config entry."""
     l = []
     for subtree in subtrees:
         if '/' in subtree:
@@ -91,7 +175,7 @@ def _subtreelist(ui, repo, opts):
     return l
 
 def _subtreegen(ui, repo, opts):
-    '''yields (repo, subtree) tuples'''
+    """yields (repo, subtree) tuples"""
     l =  _subtreelist(ui, repo, opts)
     if l:
         for subtree in l:
@@ -115,8 +199,11 @@ def _subtreegen(ui, repo, opts):
             i += 1
 
 def _docmd1(cmd, ui, repo, *args, **opts):
-    '''Call cmd for repo and each configured/specified subtree.
-    This is for commands which use one repo (e.g., tstatus).'''
+    """Call cmd for repo and each configured/specified subtree.
+
+    This is for commands which operate on a single tree (e.g., tstatus,
+    tupdate)."""
+
     ui.status('[%s]:\n' % repo.root)
     trc = cmd(ui, repo, *args, **opts)
     rc = trc != None and trc or 0
@@ -128,8 +215,10 @@ def _docmd1(cmd, ui, repo, *args, **opts):
     return rc
 
 def _docmd2(cmd, ui, repo, remote, adjust, **opts):
-    '''Call cmd for repo and each configured/specified subtree.
-    This is for commands which use two repos (e.g., tincoming, tpush).'''
+    """Call cmd for repo and each configured/specified subtree.
+
+    This is for commands which operate on two trees (e.g., tpull, tpush)."""
+
     ui.status('[%s]:\n' % repo.root)
     trc = cmd(ui, repo, remote, **opts)
     rc = trc != None and trc or 0
@@ -148,7 +237,7 @@ def _makeparentdir(path):
             os.makedirs(pdir)
 
 def _origcmd(name):
-    'Return the callable mercurial will invoke for the given command name.'
+    """Return the callable mercurial will invoke for the given command name."""
     return cmdutil.findcmd(name, commands.table)[1][0]
 
 def _shortpaths(root, subtrees):
@@ -164,7 +253,7 @@ def _shortpaths(root, subtrees):
     return l
 
 def _subtreejoin(repo, subtree):
-    '''return a string (url or path) referring to subtree within repo'''
+    """Return a string (url or path) referring to subtree within repo."""
     if repo.local():
         return repo.wjoin(subtree)
     return repo.url().rstrip('/') + '/' + subtree
@@ -264,30 +353,30 @@ def _command(ui, repo, argv, stop, opts):
     return rc
 
 def command(ui, repo, cmd, *args, **opts):
-    '''run a command in each repo in the tree.
+    """Run a command in each repo in the tree.
 
     Change directory to the root of each repo and run the command.
 
-    Note that mercurial normally parses all arguments that start with a dash,
-    including those that follow the command name, which usually results in an
-    error.  Prevent this by using '--' before the command or arguments, e.g.:
+    The command is executed directly (i.e., not using a shell), so if i/o
+    redirection or other shell features are desired, include the shell
+    invocation in the command, e.g.:  hg tcommand -- sh -c 'ls -l > ls.out'
 
-    hg tcommand -- ls -l
-    '''
+    Mercurial parses all arguments that start with a dash, including those that
+    follow the command name, which usually results in an error.  Prevent this by
+    using '--' before the command or arguments, e.g.:  hg tcommand -- ls -l"""
 
     _checklocal(repo)
     l = __builtin__.list((cmd,) + args)
     return _command(ui, repo, l, opts.get('stop'), opts)
 
 def config(ui, repo, *subtrees, **opts):
-    '''list or change the subtrees configuration
+    """list or change the subtrees configuration
 
-    One of four operations can be selected:  --list, --add, --del, or --set.
-    If no operation is specified, --list is assumed.
+    One of four operations can be selected:  --list, --add, --del, or --set.  If
+    no operation is specified, --list is assumed.
 
-    If the --walk option is used with --set, the filesystem rooted at
-    REPO is scanned and the subtree configuration set to the discovered repos.
-    '''
+    If the --walk option is used with --set, the filesystem rooted at REPO is
+    scanned and the subtree configuration set to the discovered repos."""
 
     _checklocal(repo)
 
@@ -333,12 +422,12 @@ def config(ui, repo, *subtrees, **opts):
         return _writeconfig(repo, l)
 
 def diff(ui, repo, *args, **opts):
-    '''diff repository (or selected files)'''
+    """diff repository (or selected files)"""
     _checklocal(repo)
     return _docmd1(_origcmd('diff'), ui, repo, *args, **opts)
 
 def heads(ui, repo, *branchrevs, **opts):
-    '''show current repository heads or show branch heads'''
+    """show current repository heads or show branch heads"""
     _checklocal(repo)
     st = opts.get('subtrees')
     repocount = len(_list(ui, repo, st and {'subtrees': st} or {}))
@@ -347,7 +436,7 @@ def heads(ui, repo, *branchrevs, **opts):
     return int(rc == repocount)
 
 def incoming(ui, repo, remote="default", **opts):
-    '''show new changesets found in source'''
+    """show new changesets found in source"""
     _checklocal(repo)
     adjust = remote and not ui.config('paths', remote)
     st = opts.get('subtrees')
@@ -368,16 +457,16 @@ def _list(ui, repo, opts):
     return l
 
 def list(ui, repo, **opts):
-    '''list the repo and configured subtrees, recursively
+    """list the repo and configured subtrees, recursively
 
     The initial list of subtrees is obtained from the command line (if present)
     or from the repo configuration.
 
-    If the --walk option is specified, search the filesystem for subtrees
-    instead of using the command line or configuration item.
+    If the --walk option is specified, search the filesystem instead of using
+    the command line or repo configuration.
 
-    If the --short option is specified, "short" paths are listed (relative to
-    the top-level repo).'''
+    If the --short option is specified, the listed paths are relative to
+    the top-level repo."""
 
     _checklocal(repo)
     if opts.get('walk'):
@@ -497,6 +586,10 @@ def defpath(ui, repo, peer=None, peer_push=None, **opts):
     return defpath_mod.defpath(ui, repo, peer, peer_push, walker, opts)
 
 def debugkeys(ui, src, **opts):
+    '''list the tree configuration using mercurial's pushkey mechanism.
+
+    This works for remote repositories as long as the remote hg server has the
+    trees extension enabled.'''
     d = hg.repository(ui, src).listkeys('trees')
     i = 0
     n = len(d)
