@@ -280,7 +280,7 @@ def _writeconfig(repo, subtrees, append = False):
 def _clonerepo(ui, source, dest, opts):
     _makeparentdir(dest)
     # Copied from mercurial/hg.py; need the returned dest repo.
-    return hg.clone(hg.remoteui(ui, opts), source, dest,
+    return hg_clone(ui, opts, source, dest,
                     pull=opts.get('pull'),
                     stream=opts.get('uncompressed'),
                     rev=opts.get('rev'),
@@ -320,8 +320,14 @@ def _clone(ui, source, dest, opts):
     subtrees = _clonesubtrees(ui, src, dst, opts)
     _writeconfig(dst, subtrees)
 
+# Need to indirect through hg_clone for compatibility w/various hg versions.
+hg_clone = None
+
 def clone(ui, source, dest=None, *subtreeargs, **opts):
     '''copy one or more existing repositories to create a tree'''
+    global hg_clone
+    if not hg_clone:
+        hg_clone = compatible_clone()
     if subtreeargs:
         s = __builtin__.list(subtreeargs)
         s.extend(opts.get('subtrees')) # Note:  extend does not return a value
@@ -600,6 +606,19 @@ def debugkeys(ui, src, **opts):
     return 0
 
 # ----------------------------- mercurial linkage ------------------------------
+
+# Tolerate changes to the signature of hg.clone().
+def compatible_clone():
+    clone_args = inspect.getargspec(hg.clone)[0]
+    if len(clone_args) < 9:
+        # hg < 1.9:  no 'peeropts' parameter (d976542986d2, bd1acea552ff).
+        def hg_clone(ui, peeropts, source, dest=None, pull=False, rev=None,
+                     update=True, stream=False, branch=None):
+            rui = hg.remoteui(ui, peeropts)
+            return hg.clone(rui, source, dest, pull, rev, update, stream,
+                            branch)
+        return hg_clone
+    return hg.clone
 
 subtreesopt = [('', 'subtrees', [],
                 _('path to subtree'),
