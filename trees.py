@@ -144,6 +144,15 @@ def _expandsubtrees(ui, subtrees):
                 l += [subtree]
     return l
 
+def _nsnormalize(s):
+    if s == 'trees' or s.startswith('trees.'):
+        return s
+    return 'trees.' + s
+
+def _ns(ui, opts):
+    return _nsnormalize(opts.get('tns') or
+                        ui.config('trees', 'namespace', 'trees'))
+
 _splitui = None
 
 def _splitsubtrees(l):
@@ -168,7 +177,7 @@ def _subtreelist(ui, repo, opts):
         return _expandsubtrees(ui, cansplit and _splitsubtrees(l) or l)
     l = []
     try:
-        for line in repo.opener('trees'):
+        for line in repo.opener(_ns(ui, opts)):
             l += [line.rstrip('\r\n')]
     except:
         pass
@@ -266,8 +275,8 @@ def _walk(ui, repo, opts):
             l += [dirpath]
     return sorted(l)
 
-def _writeconfig(repo, subtrees, append = False):
-    f = open(repo.join('trees'), append and 'a' or 'w')
+def _writeconfig(repo, namespace, subtrees, append = False):
+    f = open(repo.join(namespace or 'trees'), append and 'a' or 'w')
     try:
         if subtrees:
             f.write('\n'.join(subtrees) + '\n')
@@ -318,7 +327,7 @@ def _clone(ui, source, dest, opts):
     src, dst = _clonerepo(ui, source, dest, opts)
     ui.status(_('created %s\n') % dst.root)
     subtrees = _clonesubtrees(ui, src, dst, opts)
-    _writeconfig(dst, subtrees)
+    _writeconfig(dst, _ns(ui, opts), subtrees)
 
 # Need to indirect through hg_clone for compatibility w/various hg versions.
 hg_clone = None
@@ -338,7 +347,7 @@ def clone(ui, source, dest=None, *subtreeargs, **opts):
         ui.status('skipping root %s\n' % source)
         src, dst = _skiprepo(ui, source, dest)
         subtrees = _clonesubtrees(ui, src, dst, opts)
-        _writeconfig(dst, subtrees, True)
+        _writeconfig(dst, _ns(ui, opts), subtrees, True)
     return 0
 
 def _command(ui, repo, argv, stop, opts):
@@ -405,19 +414,19 @@ def config(ui, repo, *subtrees, **opts):
             if subtree in l:
                 raise util.Abort(_('subtree %s already configured' % subtree))
             l += [subtree]
-        return _writeconfig(repo, l)
+        return _writeconfig(repo, _ns(ui, opts), l)
     if opdel:
         all = opts.get('all')
         if all + bool(subtrees) != 1:
             raise util.Abort(_('use either --all or subtrees (but not both)'))
         if all:
-            return _writeconfig(repo, [])
+            return _writeconfig(repo, _ns(ui, opts), [])
         l = _subtreelist(ui, repo, opts)
         for subtree in subtrees:
             if not subtree in l:
                 raise util.Abort(_('no subtree %s' % subtree))
             l.remove(subtree)
-        return _writeconfig(repo, l)
+        return _writeconfig(repo, _ns(ui, opts), l)
     if opset:
         walk = opts.get('walk')
         if walk + bool(subtrees) != 1:
@@ -425,7 +434,7 @@ def config(ui, repo, *subtrees, **opts):
         l = subtrees
         if walk:
             l = _shortpaths(repo.root, _walk(ui, repo, {}))[1:]
-        return _writeconfig(repo, l)
+        return _writeconfig(repo, _ns(ui, opts), l)
 
 def diff(ui, repo, *args, **opts):
     """diff repository (or selected files)"""
@@ -596,7 +605,7 @@ def debugkeys(ui, src, **opts):
 
     This works for remote repositories as long as the remote hg server has the
     trees extension enabled.'''
-    d = hg.repository(ui, src).listkeys('trees')
+    d = hg.repository(ui, src).listkeys(_ns(ui, opts))
     i = 0
     n = len(d)
     while i < n:
@@ -620,22 +629,25 @@ def compatible_clone():
         return hg_clone
     return hg.clone
 
-subtreesopt = [('', 'subtrees', [],
-                _('path to subtree'),
-                _('SUBTREE'))]
+namespaceopt = [('', 'tns', '',
+                 _('trees namespace to use'),
+                 _('NAMESPACE'))]
+subtreesopts = [('', 'subtrees', [],
+                 _('path to subtree'),
+                 _('SUBTREE'))] + namespaceopt
 
 walkopt = [('w', 'walk', False,
             _('walk the filesystem to discover subtrees'))]
 
 cloneopts = [('', 'skiproot', False,
               _('do not clone the root repo in the tree'))
-            ] + subtreesopt
+            ] + subtreesopts
 commandopts = [('', 'stop', False,
                 _('stop if command returns non-zero'))
-              ] + subtreesopt
+              ] + subtreesopts
 listopts = [('s', 'short', False,
              _('list short paths (relative to repo root)'))
-           ] + walkopt + subtreesopt
+           ] + walkopt + subtreesopts
 configopts = [('a', 'add', False,
                _('add the specified SUBTREEs to config')),
               ('',  'all', False,
@@ -645,7 +657,7 @@ configopts = [('a', 'add', False,
               ('l', 'list', False,
                _('list the configured subtrees')),
               ('s', 'set', False, _('set the subtree config to SUBTREEs'))
-             ] + walkopt
+             ] + namespaceopt + walkopt
 
 def _newcte(origcmd, newfunc, extraopts = [], synopsis = None):
     '''generate a cmdtable entry based on that for origcmd'''
@@ -664,7 +676,7 @@ def extsetup(ui = None):
     defpath_opts = []
     try:
         defpath_mod = extensions.find('defpath')
-        defpath_opts = __builtin__.list(defpath_mod.opts)
+        defpath_opts = __builtin__.list(defpath_mod.opts) + subtreesopts
         defpath_doc = getattr(defpath_mod, 'common_docstring', '')
         if defpath_doc:
             defpath.__doc__ += defpath_doc
@@ -677,43 +689,48 @@ def extsetup(ui = None):
                            _('[OPTION]... SOURCE [DEST [SUBTREE]...]')),
         'tcommand': (command, commandopts, _('command [arg] ...')),
         'tconfig': (config, configopts, _('[OPTION]... [SUBTREE]...')),
-        'tdiff': _newcte('diff', diff, subtreesopt),
-        'theads': _newcte('heads', heads, subtreesopt),
-        'tincoming': _newcte('incoming', incoming, subtreesopt),
-        'toutgoing': _newcte('outgoing', outgoing, subtreesopt),
+        'tdiff': _newcte('diff', diff, subtreesopts),
+        'theads': _newcte('heads', heads, subtreesopts),
+        'tincoming': _newcte('incoming', incoming, subtreesopts),
+        'toutgoing': _newcte('outgoing', outgoing, subtreesopts),
         'tlist': (list, listopts, _('[OPTION]...')),
-        '^tlog': _newcte('log', log, subtreesopt),
-        'tparents': _newcte('parents', parents, subtreesopt),
-        'tpaths': _newcte('paths', paths, subtreesopt),
-        '^tpull': _newcte('pull', pull, subtreesopt),
-        '^tpush': _newcte('push', push, subtreesopt),
-        '^tstatus': _newcte('status', status, subtreesopt),
-        '^tupdate': _newcte('update', update, subtreesopt),
-        'ttag': _newcte('tag', tag, subtreesopt),
-        'ttip': _newcte('tip', tip, subtreesopt),
+        '^tlog': _newcte('log', log, subtreesopts),
+        'tparents': _newcte('parents', parents, subtreesopts),
+        'tpaths': _newcte('paths', paths, subtreesopts),
+        '^tpull': _newcte('pull', pull, subtreesopts),
+        '^tpush': _newcte('push', push, subtreesopts),
+        '^tstatus': _newcte('status', status, subtreesopts),
+        '^tupdate': _newcte('update', update, subtreesopts),
+        'ttag': _newcte('tag', tag, subtreesopts),
+        'ttip': _newcte('tip', tip, subtreesopts),
         'tversion': (version, [], ''),
-        'tdebugkeys': (debugkeys, [], '')
+        'tdebugkeys': (debugkeys, namespaceopt, '')
     }
     if defpath_mod:
         cmdtable['tdefpath'] = (defpath, defpath_opts, _(''))
     if getattr(commands, 'summary', None):
-        cmdtable['tsummary'] = _newcte('summary', summary, subtreesopt)
+        cmdtable['tsummary'] = _newcte('summary', summary, subtreesopts)
 
 commands.norepo += ' tclone tversion tdebugkeys'
 
-def _treeslistkeys(repo):
-    # trees are ordered, so the keys are the non-negative integers.
-    d = {}
-    i = 0
-    try:
-        for line in repo.opener('trees'):
-            d[("%d" % i)] = line.rstrip('\n\r')
-            i += 1
-        return d
-    except:
-        return {}
+def genlistkeys(namespace):
+    def _listkeys(repo):
+        # trees are ordered, so the keys are the non-negative integers.
+        d = {}
+        i = 0
+        try:
+            for line in repo.opener(namespace):
+                d[("%d" % i)] = line.rstrip('\n\r')
+                i += 1
+            return d
+        except:
+            return {}
+    return _listkeys
 
 def reposetup(ui, repo):
     if repo.capable('pushkey'):
         # Pushing keys is disabled; unclear whether/how it should work.
-        pushkey.register('trees', lambda *x: False, _treeslistkeys)
+        pushfunc = lambda *x: False
+        x = [_nsnormalize(s) for s in ui.configlist('trees', 'namespaces', [])]
+        for ns in [_ns(ui, {})] + x:
+            pushkey.register(ns, pushfunc, genlistkeys(ns))
