@@ -214,7 +214,12 @@ def _docmd1(cmd, ui, repo, *args, **opts):
     tupdate)."""
 
     ui.status('[%s]:\n' % repo.root)
-    trc = cmd(ui, repo, *args, **opts)
+    # XXX - should be done just once.
+    cmdopts = dict(opts)
+    for o in subtreesopts:
+        if o[1] in cmdopts:
+            del cmdopts[o[1]]
+    trc = cmd(ui, repo, *args, **cmdopts)
     rc = trc != None and trc or 0
     for subtree in _subtreelist(ui, repo, opts):
         ui.status('\n')
@@ -384,6 +389,23 @@ def command(ui, repo, cmd, *args, **opts):
     l = __builtin__.list((cmd,) + args)
     return _command(ui, repo, l, opts.get('stop'), opts)
 
+def commit(ui, repo, *pats, **opts):
+    """commit all files"""
+    _checklocal(repo)
+    if pats:
+        util.Abort('must commit all files')
+
+    hgcommit = _origcmd('commit')
+    def condcommit(ui, repo, *pats, **opts):
+        '''commit conditionally - only if there is something to commit'''
+        for l in repo.status()[:3]: # modified, added, removed
+            if l:
+                return hgcommit(ui, repo, *pats, **opts)
+        ui.status('nothing to commit\n')
+        return 0
+
+    return _docmd1(condcommit, ui, repo, *pats, **opts)
+
 def config(ui, repo, *subtrees, **opts):
     """list or change the subtrees configuration
 
@@ -498,6 +520,19 @@ def log(ui, repo, *args, **opts):
     '''show revision history of entire repository or files'''
     _checklocal(repo)
     return _docmd1(_origcmd('log'), ui, repo, *args, **opts)
+
+def merge(ui, repo, node=None, **opts):
+    '''merge working directory with another revision'''
+    _checklocal(repo)
+
+    hgmerge = _origcmd('merge')
+    def condmerge(ui, repo, node=None, **opts):
+        if len(repo.heads()) > 1:
+            return hgmerge(ui, repo, node, **opts)
+        ui.status('nothing to merge\n')
+        return 0
+
+    return _docmd1(condmerge, ui, repo, node, **opts)
 
 def outgoing(ui, repo, remote=None, **opts):
     '''show changesets not found in the destination'''
@@ -662,9 +697,12 @@ configopts = [('a', 'add', False,
 def _newcte(origcmd, newfunc, extraopts = [], synopsis = None):
     '''generate a cmdtable entry based on that for origcmd'''
     cte = cmdutil.findcmd(origcmd, commands.table)[1]
-    if (len(cte) > 2):
-        return (newfunc, cte[1] + extraopts, synopsis or cte[2])
-    return (newfunc, cte[1] + extraopts, synopsis)
+    # Filter out --exclude and --include, since those do not work across
+    # repositories (mercurial converts them to abs paths).
+    opts = [o for o in cte[1] if o[1] not in ('exclude', 'include')]
+    if len(cte) > 2:
+        return (newfunc, opts + extraopts, synopsis or cte[2])
+    return (newfunc, opts + extraopts, synopsis)
 
 def extsetup(ui = None):
     # The cmdtable is initialized here to pick up options added by other
@@ -687,14 +725,16 @@ def extsetup(ui = None):
     cmdtable = {
         '^tclone': _newcte('clone', clone, cloneopts,
                            _('[OPTION]... SOURCE [DEST [SUBTREE]...]')),
-        'tcommand': (command, commandopts, _('command [arg] ...')),
+        'tcommand|tcmd': (command, commandopts, _('command [arg] ...')),
+        'tcommit|tci': _newcte('commit', commit, subtreesopts),
         'tconfig': (config, configopts, _('[OPTION]... [SUBTREE]...')),
         'tdiff': _newcte('diff', diff, subtreesopts),
         'theads': _newcte('heads', heads, subtreesopts),
         'tincoming': _newcte('incoming', incoming, subtreesopts),
         'toutgoing': _newcte('outgoing', outgoing, subtreesopts),
         'tlist': (list, listopts, _('[OPTION]...')),
-        '^tlog': _newcte('log', log, subtreesopts),
+        '^tlog|thistory': _newcte('log', log, subtreesopts),
+        'tmerge': _newcte('merge', merge, subtreesopts),
         'tparents': _newcte('parents', parents, subtreesopts),
         'tpaths': _newcte('paths', paths, subtreesopts),
         '^tpull': _newcte('pull', pull, subtreesopts),

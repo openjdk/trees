@@ -697,20 +697,60 @@ Pull, merge, push.
   adding file changes
   added 1 changesets with 1 changes to 1 files (+1 heads)
   (run 'hg heads' to see heads, 'hg merge' to merge)
-  $ for r in r2
-  > do
-  >     for sr in s2 s2/s2.2 s2/s2.2/s2.2.1
-  >     do
-  >         hg -R $r/$sr merge
-  >         hg -R $r/$sr commit -m 'merge with r1'
-  >     done
-  > done
+  $ hg -R r2 tmerge
+  [$TESTTMP/r2]:
+  nothing to merge
+  
+  [$TESTTMP/r2/s1]:
+  nothing to merge
+  
+  [$TESTTMP/r2/s1/s1.1 with spaces]:
+  nothing to merge
+  
+  [$TESTTMP/r2/s1/s1.2]:
+  nothing to merge
+  
+  [$TESTTMP/r2/s1/s1.3 with spaces]:
+  nothing to merge
+  
+  [$TESTTMP/r2/s2]:
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
+  
+  [$TESTTMP/r2/s2/s2.1]:
+  nothing to merge
+  
+  [$TESTTMP/r2/s2/s2.2]:
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
+  
+  [$TESTTMP/r2/s2/s2.2/s2.2.1]:
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (branch merge, don't forget to commit)
+  $ hg -R r2 tcommit -d '0 0' -m 'merge with r1'
+  [$TESTTMP/r2]:
+  nothing to commit
+  
+  [$TESTTMP/r2/s1]:
+  nothing to commit
+  
+  [$TESTTMP/r2/s1/s1.1 with spaces]:
+  nothing to commit
+  
+  [$TESTTMP/r2/s1/s1.2]:
+  nothing to commit
+  
+  [$TESTTMP/r2/s1/s1.3 with spaces]:
+  nothing to commit
+  
+  [$TESTTMP/r2/s2]:
+  
+  [$TESTTMP/r2/s2/s2.1]:
+  nothing to commit
+  
+  [$TESTTMP/r2/s2/s2.2]:
+  
+  [$TESTTMP/r2/s2/s2.2/s2.2.1]:
   $ hg -R r2 tpush
   [$TESTTMP/r2]:
   pushing to $TESTTMP/r1
@@ -937,7 +977,7 @@ Test tcommand, tparents, tstatus, ttag, tupdate.
   $TESTTMP/r135/s1
   $TESTTMP/r135/s3
   $TESTTMP/r135/s5
-  $ hg tcomm -R r135 pwd
+  $ hg tcommand -R r135 pwd
   [$TESTTMP/r135]:
   $TESTTMP/r135
   
@@ -950,7 +990,7 @@ Test tcommand, tparents, tstatus, ttag, tupdate.
   [$TESTTMP/r135/s5]:
   $TESTTMP/r135/s5
   $ hg tstat -R r135 -q
-  $ hg tcomm -R r135 -q -- sh -c 'echo foo > xyz'
+  $ hg tcommand -R r135 -q -- sh -c 'echo foo > xyz'
   $ hg tstat -R r135
   [$TESTTMP/r135]:
   ? xyz
@@ -963,7 +1003,7 @@ Test tcommand, tparents, tstatus, ttag, tupdate.
   
   [$TESTTMP/r135/s5]:
   ? xyz
-  $ hg tcomm -R r135 -q -- hg add xyz
+  $ hg tcommand -R r135 -q -- hg add xyz
   $ hg tstat -R r135
   [$TESTTMP/r135]:
   A xyz
@@ -1004,7 +1044,7 @@ Test tcommand, tparents, tstatus, ttag, tupdate.
   +++ b/xyz
   @@ -0,0 +1,1 @@
   +foo
-  $ hg tcomm -R r135 -q -- hg commit -m 'add xyz'
+  $ hg tcommit -R r135 -d '0 0' -q -m 'add xyz'
   $ hg tstat -R r135 -q
   $ hg ttag  -R r135 -d '0 0' xyz
   [$TESTTMP/r135]:
