@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010, 2011, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2010, 2013, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -118,13 +118,14 @@ from mercurial import cmdutil
 from mercurial import commands
 from mercurial import extensions
 from mercurial import hg
+from mercurial import localrepo
 from mercurial import pushkey
 from mercurial import ui
 from mercurial import util
 from mercurial.i18n import _
 
 def _checklocal(repo):
-    if not repo.local():
+    if not isinstance(repo, localrepo.localrepository):
         raise util.Abort(_('repository is not local'))
 
 def _expandsubtrees(ui, subtrees):
@@ -177,11 +178,18 @@ def _subtreelist(ui, repo, opts):
         return _expandsubtrees(ui, cansplit and _splitsubtrees(l) or l)
     l = []
     try:
-        for line in repo.opener(_ns(ui, opts)):
-            l += [line.rstrip('\r\n')]
+        keys = repo.listkeys(_ns(ui, opts))
+        for i in xrange(0, len(keys)):
+            l.append(keys[str(i)])
     except:
         pass
     return l
+
+def hg_repo(ui, url, opts):
+    parts = url.split(':', 2)
+    if len(parts) == 1 or parts[0] == 'file':
+        return hg.repository(ui, url)
+    return hg.peer(ui, opts, url)
 
 def _subtreegen(ui, repo, opts):
     """yields (repo, subtree) tuples"""
@@ -190,11 +198,11 @@ def _subtreegen(ui, repo, opts):
         for subtree in l:
             # Look for file://..., http://..., ssh://..., etc.
             if subtree.split(':', 2)[0] in hg.schemes:
-                repo = hg.repository(ui, subtree)
+                repo = hg_repo(ui, subtree, opts)
             else:
                 yield repo, subtree
         return
-    if repo.capable('pushkey'):
+    else:
         s = repo.listkeys('trees')
         i = 0
         n = len(s)
@@ -202,7 +210,7 @@ def _subtreegen(ui, repo, opts):
             subtree = s[("%d" % i)]
             # Look for file://..., http://..., ssh://..., etc.
             if subtree.split(':', 2)[0] in hg.schemes:
-                repo = hg.repository(ui, subtree)
+                repo = hg_repo(ui, subtree, opts)
             else:
                 yield repo, subtree
             i += 1
@@ -266,11 +274,18 @@ def _shortpaths(root, subtrees):
             l += [subtree[n:]]
     return l
 
+def _stripfilescheme(url):
+    if url.startswith('file:'):
+        i = 5
+        while url[i:i+1] == '//':
+            i += 1
+        url = url[i:]
+    return url
+
 def _subtreejoin(repo, subtree):
     """Return a string (url or path) referring to subtree within repo."""
-    if repo.local():
-        return repo.wjoin(subtree)
-    return repo.url().rstrip('/') + '/' + subtree
+    u = _stripfilescheme(repo.url()).rstrip('/')
+    return u + '/' + subtree
 
 def _walk(ui, repo, opts):
     l = []
@@ -294,26 +309,32 @@ def _writeconfig(repo, namespace, subtrees, append = False):
 def _clonerepo(ui, source, dest, opts):
     _makeparentdir(dest)
     # Copied from mercurial/hg.py; need the returned dest repo.
-    return hg_clone(ui, opts, source, dest,
+    s, d = hg_clone(ui, opts, source, dest,
                     pull=opts.get('pull'),
                     stream=opts.get('uncompressed'),
                     rev=opts.get('rev'),
                     update=opts.get('updaterev') or not opts.get('noupdate'),
                     branch=opts.get('branch'))
+    if isinstance(s, localrepo.localrepository) or isinstance(d.local(), bool):
+        return (s, d)
+    # peers; return the destination localrepo
+    return (s, d.local())
 
 def _skiprepo(ui, source, dest):
     src = None
     try:
-        src = hg.repository(ui, source)
+        src = hg_repo(ui, source, {})
     except:
         class fakerepo(object):
             def __init__(self, ui, path):
                 self.ui = ui
                 self._path = path
-            def capable(self, s):
-                return False
+            def peer(self):
+                return self
             def local(self):
-                return True
+                return self._path
+            def url(self):
+                return self._path
             def wjoin(self, path):
                 return os.path.join(self._path, path)
         src = fakerepo(ui, source)
@@ -640,7 +661,7 @@ def debugkeys(ui, src, **opts):
 
     This works for remote repositories as long as the remote hg server has the
     trees extension enabled.'''
-    d = hg.repository(ui, src).listkeys(_ns(ui, opts))
+    d = hg_repo(ui, src, opts).listkeys(_ns(ui, opts))
     i = 0
     n = len(d)
     while i < n:
@@ -663,6 +684,10 @@ def compatible_clone():
                             branch)
         return hg_clone
     return hg.clone
+
+# hg < 2.3:  no peer() method
+if getattr(hg, 'peer', None) is None:
+    hg.peer = lambda ui, opts, url: hg.repository(ui, url)
 
 namespaceopt = [('', 'tns', '',
                  _('trees namespace to use'),
@@ -768,9 +793,8 @@ def genlistkeys(namespace):
     return _listkeys
 
 def reposetup(ui, repo):
-    if repo.capable('pushkey'):
-        # Pushing keys is disabled; unclear whether/how it should work.
-        pushfunc = lambda *x: False
-        x = [_nsnormalize(s) for s in ui.configlist('trees', 'namespaces', [])]
-        for ns in [_ns(ui, {})] + x:
-            pushkey.register(ns, pushfunc, genlistkeys(ns))
+    # Pushing keys is disabled; unclear whether/how it should work.
+    pushfunc = lambda *x: False
+    x = [_nsnormalize(s) for s in ui.configlist('trees', 'namespaces', [])]
+    for ns in [_ns(ui, {})] + x:
+        pushkey.register(ns, pushfunc, genlistkeys(ns))
