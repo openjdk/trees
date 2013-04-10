@@ -124,6 +124,12 @@ from mercurial import ui
 from mercurial import util
 from mercurial.i18n import _
 
+testedwith = '''
+1.6 1.6.4 1.7 1.7.5 1.8 1.8.4 1.9 1.9.3
+2.0-rc 2.0 2.0.2 2.1-rc 2.1 2.1.2 2.2-rc 2.2 2.2.3
+2.3-rc 2.3 2.3.2 2.4-rc 2.4 2.4.2 2.5-rc 2.5 2.5.4
+'''
+
 def _checklocal(repo):
     if not isinstance(repo, localrepo.localrepository):
         raise util.Abort(_('repository is not local'))
