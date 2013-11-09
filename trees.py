@@ -109,6 +109,7 @@ langtools repos::
 """
 
 import __builtin__
+import exceptions
 import inspect
 import os
 import re
@@ -125,6 +126,7 @@ from mercurial import util
 from mercurial.i18n import _
 
 testedwith = '''
+1.1 1.1.2 1.2 1.2.1 1.3 1.3.1 1.4 1.4.3 1.5 1.5.4
 1.6 1.6.4 1.7 1.7.5 1.8 1.8.4 1.9 1.9.3
 2.0-rc 2.0 2.0.2 2.1-rc 2.1 2.1.2 2.2-rc 2.2 2.2.3
 2.3-rc 2.3 2.3.2 2.4-rc 2.4 2.4.2 2.5-rc 2.5 2.5.4
@@ -636,7 +638,10 @@ def tip(ui, repo, **opts):
 def _update(cmd, ui, repo, node=None, rev=None, clean=False, date=None,
             check=False, **opts):
     ui.status('[%s]:\n' % repo.root)
-    trc = cmd(ui, repo, node, rev, clean, date, check)
+    if _newupdate:
+        trc = cmd(ui, repo, node, rev, clean, date, check)
+    else:
+        trc = cmd(ui, repo, node, rev, clean, date)
     rc = trc != None and trc or 0
     for subtree in _subtreelist(ui, repo, opts):
         ui.status('\n')
@@ -679,9 +684,27 @@ def debugkeys(ui, src, **opts):
 
 # ----------------------------- mercurial linkage ------------------------------
 
+if not hasattr(hg, 'remoteui'):
+    if hasattr(cmdutil, 'remoteui'):
+        # hg < 1.5.4:  remoteui is in cmdutil instead of hg
+        hg.remoteui = cmdutil.remoteui
+    else:
+        # hg < 1.3:  no remoteui
+        def _remoteui(ui, opts):
+            cmdutil.setremoteconfig(ui, opts)
+            return ui
+        hg.remoteui = _remoteui
+
 # Tolerate changes to the signature of hg.clone().
 def compatible_clone():
     clone_args = inspect.getargspec(hg.clone)[0]
+    if not 'branch' in clone_args:
+        # hg < 1.5:  no 'branch' parameter (a78bfaf988e1)
+        def hg_clone(ui, peeropts, source, dest=None, pull=False, rev=None,
+                     update=True, stream=False, branch=None):
+            rui = hg.remoteui(ui, peeropts)
+            return hg.clone(rui, source, dest, pull, rev, update, stream)
+        return hg_clone
     if len(clone_args) < 9:
         # hg < 1.9:  no 'peeropts' parameter (d976542986d2, bd1acea552ff).
         def hg_clone(ui, peeropts, source, dest=None, pull=False, rev=None,
@@ -696,12 +719,23 @@ def compatible_clone():
 if getattr(hg, 'peer', None) is None:
     hg.peer = lambda ui, opts, url: hg.repository(ui, url)
 
+_newupdate = len(inspect.getargspec(commands.update)[0]) >= 7
 namespaceopt = [('', 'tns', '',
                  _('trees namespace to use'),
                  _('NAMESPACE'))]
 subtreesopts = [('', 'subtrees', [],
                  _('path to subtree'),
                  _('SUBTREE'))] + namespaceopt
+
+if len(commands.globalopts[0]) < 5:
+    # hg < 1.5.4:  arg description (5th tuple element) is not supported
+    def trimoptions(l):
+        i = 0
+        for opt in l:
+            l[i] = opt[:4]
+            i += 1
+    trimoptions(namespaceopt)
+    trimoptions(subtreesopts)
 
 walkopt = [('w', 'walk', False,
             _('walk the filesystem to discover subtrees'))]
@@ -803,5 +837,20 @@ def reposetup(ui, repo):
     # Pushing keys is disabled; unclear whether/how it should work.
     pushfunc = lambda *x: False
     x = [_nsnormalize(s) for s in ui.configlist('trees', 'namespaces', [])]
-    for ns in [_ns(ui, {})] + x:
-        pushkey.register(ns, pushfunc, genlistkeys(ns))
+    try:
+        for ns in [_ns(ui, {})] + x:
+            pushkey.register(ns, pushfunc, genlistkeys(ns))
+    except exceptions.ImportError:
+        # hg < 1.6 - no pushkey.
+        def _listkeys(self, namespace):
+            # trees are ordered, so the keys are the non-negative integers.
+            d = {}
+            i = 0
+            try:
+                for line in self.opener(namespace):
+                    d[("%d" % i)] = line.rstrip('\n\r')
+                    i += 1
+                return d
+            except:
+                return {}
+        setattr(type(repo), 'listkeys', _listkeys)
