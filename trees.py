@@ -200,29 +200,32 @@ def hg_repo(ui, url, opts):
         return hg.repository(ui, url)
     return hg.peer(ui, opts, url)
 
+def _subtreegen_listkeys(ui, repo, opts, namespace):
+    keys = repo.listkeys(namespace)
+    for i in range(len(keys)):
+        subtree = keys[("%d" % i)]
+        yield repo, subtree
+
 def _subtreegen(ui, repo, opts):
     """yields (repo, subtree) tuples"""
     l =  _subtreelist(ui, repo, opts)
+    namespace = _ns(ui, opts)
+    yielded = False
     if l:
         for subtree in l:
             # Look for file://..., http://..., ssh://..., etc.
             if subtree.split(':', 2)[0] in hg.schemes:
+                if not yielded:
+                    for r, st in _subtreegen_listkeys(ui, repo, opts, namespace):
+                        yield r, st
                 repo = hg_repo(ui, subtree, opts)
+                yielded = False
             else:
+                yielded = True
                 yield repo, subtree
-        return
-    else:
-        s = repo.listkeys('trees')
-        i = 0
-        n = len(s)
-        while i < n:
-            subtree = s[("%d" % i)]
-            # Look for file://..., http://..., ssh://..., etc.
-            if subtree.split(':', 2)[0] in hg.schemes:
-                repo = hg_repo(ui, subtree, opts)
-            else:
-                yield repo, subtree
-            i += 1
+    if not yielded:
+        for r, st in _subtreegen_listkeys(ui, repo, opts, namespace):
+            yield r, st
 
 def _docmd1(cmd, ui, repo, *args, **opts):
     """Call cmd for repo and each configured/specified subtree.
