@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010, 2013, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2010, 2014, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -130,7 +130,8 @@ testedwith = '''
 1.6 1.6.4 1.7 1.7.5 1.8 1.8.4 1.9 1.9.3
 2.0-rc 2.0 2.0.2 2.1-rc 2.1 2.1.2 2.2-rc 2.2 2.2.3
 2.3-rc 2.3 2.3.2 2.4-rc 2.4 2.4.2 2.5-rc 2.5 2.5.4
-2.6-rc 2.6 2.6.3 2.7-rc 2.7 2.7.2 2.8-rc 2.8
+2.6-rc 2.6 2.6.3 2.7-rc 2.7 2.7.2 2.8-rc 2.8 2.8.2
+2.9-rc 2.9
 '''
 
 def _checklocal(repo):
