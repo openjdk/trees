@@ -308,13 +308,30 @@ def _walk(ui, repo, opts):
             l += [dirpath]
     return sorted(l)
 
-def _writeconfig(repo, namespace, subtrees, append = False):
-    f = open(repo.join(namespace or 'trees'), append and 'a' or 'w')
+def _readfile(path):
+    f = None
     try:
-        if subtrees:
-            f.write('\n'.join(subtrees) + '\n')
-    finally:
+        f = open(path, 'r')
+        s = f.read()
         f.close()
+        return s
+    except:
+        if f:
+            f.close()
+        return None
+
+def _writeconfig(repo, namespace, subtrees, append = False):
+    confpath = repo.join(namespace or 'trees')
+    if subtrees:
+        newconfig = '\n'.join(subtrees) + '\n'
+        if append or newconfig != _readfile(confpath):
+            f = open(confpath, append and 'a' or 'w')
+            try:
+                f.write(newconfig)
+            finally:
+                f.close()
+    elif os.path.exists(confpath):
+        os.remove(confpath)
     return 0
 
 # ---------------- commands and associated recursion helpers -------------------
