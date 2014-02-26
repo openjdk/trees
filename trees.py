@@ -509,21 +509,29 @@ def setconfig(ui, repo, subtrees, opts):
 def config(ui, repo, *subtrees, **opts):
     """list or change the subtrees configuration
 
-    One of five operations can be selected:  --list, --add, --del, --expand or
-    --set.  If no operation is specified, --list is assumed.
+    One of five operations can be selected:
 
-    If the --walk option is used with --set, the filesystem rooted at REPO is
-    scanned and the subtree configuration set to the discovered repos.
+    --list:  list the configured subtrees; this is the default if no other
+      operation is selected.
 
-    In contrast to most other trees commands, tconfig does not recurse into
-    subtrees; it operates only on the current repository.  (Use the tlist
-    command to recursively list subtrees.)
+    --add:  add the specified subtrees to the configuration.
 
-    The --expand option does not list subtrees, but instead lists the values of
-    config items from the [trees] section after recursively expanding
-    them. (Items in the [trees] section can be defined recursively in terms of
-    other items in the [trees] section.)  It returns 0 if at least one config
-    item was found; otherwise it returns 1.
+    --del:  delete the specified subtrees from the configuration.
+      Use --del --all to delete all subtrees.
+
+    --set:  set the subtree configuration to the specified subtrees.
+      Use --set --walk to walk the filesystem rooted at REPO and set the
+      subtree configuration to the discovered repos.
+
+    --expand:  list the value of config items from the [trees] section.
+      Items in the [trees] section can be defined in terms of other
+      items in the [trees] section; tconfig --expand shows the
+      recursively expanded value.  It returns 0 if at least one config
+      item was found; otherwise it returns 1.
+
+    Note that this command does not recurse into subtrees; it operates
+    only on the current repository.  (Use the tlist command to
+    recursively list subtrees.)
 
     """
 
