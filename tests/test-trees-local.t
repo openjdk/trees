@@ -381,6 +381,23 @@ Test tconfig command.
   $TESTTMP/r4/s2/s2.2
   $TESTTMP/r4/s2/s2.2/s2.2.1
   $TESTTMP/r4/s3
+
+  $ cat <<EOF >> r4/s3/.hg/hgrc
+  > [trees]
+  > tlevel0 = t0
+  > tlevel1 = tlevel0 t1 t2 t3
+  > tlevel2 = tlevel1 t4 t5
+  > tlevelx = x tlevel1 y z
+  > EOF
+  $ hg -R r4/s3 tconfig --expand tlevel0
+  t0
+  $ hg -R r4/s3 tconfig --expand tlevel1
+  t0 t1 t2 t3
+  $ hg -R r4/s3 tconfig --expand tlevel2
+  t0 t1 t2 t3 t4 t5
+  $ hg -R r4/s3 tconfig --expand tlevelx
+  x t0 t1 t2 t3 y z
+
   $ rm -r r4/s3
 
 Create changesets in r1 and r2.

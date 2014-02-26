@@ -478,6 +478,25 @@ def delconfig(ui, repo, subtrees, opts):
         l.remove(subtree)
     return _writeconfig(repo, _ns(ui, opts), l)
 
+def expandconfig(ui, repo, args, opts):
+    """show recursively-expanded trees config items
+
+    Config items in the [trees] section can be defined in terms of other items;
+    this command shows the expanded value.
+
+    returns 0 if at least one config item was found; otherwise returns 1.
+    """
+
+    rc = 1
+    for item in args:
+        rhs = ui.configlist('trees', item)
+        if rhs:
+            rc = 0
+            l = _expandsubtrees(ui, rhs)
+            ui.write(' '.join(l))
+            ui.write('\n')
+    return rc
+
 def setconfig(ui, repo, subtrees, opts):
     walk = opts.get('walk')
     if walk + bool(subtrees) != 1:
@@ -490,26 +509,44 @@ def setconfig(ui, repo, subtrees, opts):
 def config(ui, repo, *subtrees, **opts):
     """list or change the subtrees configuration
 
-    One of four operations can be selected:  --list, --add, --del, or --set.  If
-    no operation is specified, --list is assumed.
+    One of five operations can be selected:  --list, --add, --del, --expand or
+    --set.  If no operation is specified, --list is assumed.
 
     If the --walk option is used with --set, the filesystem rooted at REPO is
-    scanned and the subtree configuration set to the discovered repos."""
+    scanned and the subtree configuration set to the discovered repos.
 
-    _checklocal(repo)
+    In contrast to most other trees commands, tconfig does not recurse into
+    subtrees; it operates only on the current repository.  (Use the tlist
+    command to recursively list subtrees.)
+
+    The --expand option does not list subtrees, but instead lists the values of
+    config items from the [trees] section after recursively expanding
+    them. (Items in the [trees] section can be defined recursively in terms of
+    other items in the [trees] section.)  It returns 0 if at least one config
+    item was found; otherwise it returns 1.
+
+    """
 
     opadd = opts.get('add')
     opdel = opts.get('del')
+    opexp = opts.get('expand')
     oplst = opts.get('list')
     opset = opts.get('set')
-    cnt = opadd + opdel + oplst + opset
+    cnt = opadd + opdel + opexp + oplst + opset
     if cnt > 1:
-        raise util.Abort(_('at most one of --add, --del, --list or --set is ' +
-                           'allowed'))
+        raise util.Abort(_('at most one of --add, --del, --expand, --list ' +
+                           'or --set is allowed'))
+    if not opexp and not repo:
+        raise util.Abort(_('no repository found'))
+    if repo:
+        _checklocal(repo)
+
     if opadd:
         return addconfig(ui, repo, subtrees, opts)
     if opdel:
         return delconfig(ui, repo, subtrees, opts)
+    if opexp:
+        return expandconfig(ui, repo, subtrees, opts)
     if opset:
         return setconfig(ui, repo, subtrees, opts)
 
@@ -784,6 +821,8 @@ configopts = [('a', 'add', False,
                _('with --del, delete all subtrees from config')),
               ('d', 'del', False,
                _('delete the specified SUBTREEs from config')),
+              ('e', 'expand', False,
+               _('recursively expand config items in the [trees] section')),
               ('l', 'list', False,
                _('list the configured subtrees')),
               ('s', 'set', False, _('set the subtree config to SUBTREEs'))
@@ -847,6 +886,7 @@ def extsetup(ui = None):
         cmdtable['tsummary'] = _newcte('summary', summary, subtreesopts)
 
 commands.norepo += ' tclone tversion tdebugkeys'
+commands.optionalrepo += ' tconfig'
 
 def genlistkeys(namespace):
     def _listkeys(repo):
