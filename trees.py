@@ -457,6 +457,36 @@ def commit(ui, repo, *pats, **opts):
 
     return _docmd1(condcommit, ui, repo, *pats, **opts)
 
+def addconfig(ui, repo, subtrees, opts):
+    l = _subtreelist(ui, repo, opts)
+    for subtree in subtrees:
+        if subtree in l:
+            raise util.Abort(_('subtree %s already configured' % subtree))
+        l += [subtree]
+    return _writeconfig(repo, _ns(ui, opts), l)
+
+def delconfig(ui, repo, subtrees, opts):
+    all = opts.get('all')
+    if all and subtrees:
+        raise util.Abort(_('use either --all or subtrees (but not both)'))
+    if all:
+        return _writeconfig(repo, _ns(ui, opts), [])
+    l = _subtreelist(ui, repo, opts)
+    for subtree in subtrees:
+        if not subtree in l:
+            raise util.Abort(_('no subtree %s' % subtree))
+        l.remove(subtree)
+    return _writeconfig(repo, _ns(ui, opts), l)
+
+def setconfig(ui, repo, subtrees, opts):
+    walk = opts.get('walk')
+    if walk + bool(subtrees) != 1:
+        raise util.Abort(_('use either --walk or subtrees (but not both)'))
+    if walk:
+        l = _shortpaths(repo.root, _walk(ui, repo, {}))[1:]
+        return _writeconfig(repo, _ns(ui, opts), l)
+    return _writeconfig(repo, _ns(ui, opts), subtrees)
+
 def config(ui, repo, *subtrees, **opts):
     """list or change the subtrees configuration
 
@@ -476,38 +506,16 @@ def config(ui, repo, *subtrees, **opts):
     if cnt > 1:
         raise util.Abort(_('at most one of --add, --del, --list or --set is ' +
                            'allowed'))
-    if cnt == 0 or oplst:
-        l = _subtreelist(ui, repo, opts)
-        for subtree in l:
-            ui.write(subtree + '\n')
-        return 0
-    if opadd and subtrees:
-        l = _subtreelist(ui, repo, opts)
-        for subtree in subtrees:
-            if subtree in l:
-                raise util.Abort(_('subtree %s already configured' % subtree))
-            l += [subtree]
-        return _writeconfig(repo, _ns(ui, opts), l)
+    if opadd:
+        return addconfig(ui, repo, subtrees, opts)
     if opdel:
-        all = opts.get('all')
-        if all + bool(subtrees) != 1:
-            raise util.Abort(_('use either --all or subtrees (but not both)'))
-        if all:
-            return _writeconfig(repo, _ns(ui, opts), [])
-        l = _subtreelist(ui, repo, opts)
-        for subtree in subtrees:
-            if not subtree in l:
-                raise util.Abort(_('no subtree %s' % subtree))
-            l.remove(subtree)
-        return _writeconfig(repo, _ns(ui, opts), l)
+        return delconfig(ui, repo, subtrees, opts)
     if opset:
-        walk = opts.get('walk')
-        if walk + bool(subtrees) != 1:
-            raise util.Abort(_('use either --walk or subtrees (but not both)'))
-        l = subtrees
-        if walk:
-            l = _shortpaths(repo.root, _walk(ui, repo, {}))[1:]
-        return _writeconfig(repo, _ns(ui, opts), l)
+        return setconfig(ui, repo, subtrees, opts)
+
+    for subtree in _subtreelist(ui, repo, opts):
+        ui.write(subtree + '\n')
+    return 0
 
 def diff(ui, repo, *args, **opts):
     """diff repository (or selected files)"""
