@@ -457,13 +457,19 @@ def commit(ui, repo, *pats, **opts):
 
     return _docmd1(condcommit, ui, repo, *pats, **opts)
 
-def addconfig(ui, repo, subtrees, opts):
+def addconfig(ui, repo, subtrees, opts, ignoredups = False):
+    modified = False
     l = _subtreelist(ui, repo, opts)
     for subtree in subtrees:
         if subtree in l:
-            raise util.Abort(_('subtree %s already configured' % subtree))
-        l += [subtree]
-    return _writeconfig(repo, _ns(ui, opts), l)
+            if not ignoredups:
+                raise util.Abort(_('subtree %s already configured' % subtree))
+        else:
+            l += [subtree]
+            modified = True
+    if modified:
+        return _writeconfig(repo, _ns(ui, opts), l)
+    return 0
 
 def delconfig(ui, repo, subtrees, opts):
     all = opts.get('all')
@@ -497,13 +503,60 @@ def expandconfig(ui, repo, args, opts):
             ui.write('\n')
     return rc
 
+def _depthmostsplit(subtreemap, subtree):
+    repo, sub = os.path.split(subtree)
+    while repo:
+        if repo in subtreemap:
+            return repo, sub
+        repo, sub2 = os.path.split(repo)
+        sub = subtree[len(repo) + 1:]
+    return '.', subtree
+
+def nestconfig(ui, repo, subtrees, opts):
+    newtrees = { }
+    subtreemap = dict.fromkeys(subtrees)
+    for sub in subtrees:
+        nestedrepo, nestedsub = _depthmostsplit(subtreemap, sub)
+        if nestedrepo in newtrees:
+            nl = newtrees[nestedrepo]
+            if nestedsub not in nl:
+                nl.append(nestedsub)
+        else:
+            newtrees[nestedrepo] = [nestedsub]
+    for sub in subtrees:
+        nr = hg_repo(ui, _subtreejoin(repo, sub), {})
+        _writeconfig(nr, _ns(ui, opts), newtrees.get(sub))
+    return _writeconfig(repo, _ns(ui, opts), newtrees.get('.'))
+
+# tconfig --set --depth example::
+#
+#   before         after
+#   ------------   --------------------
+#   $ hg tconfig   $ hg tconfig
+#   sub1           sub1
+#   sub1/sub1.1    sub2
+#   sub2           $ hg -R sub1 tconfig
+#   sub2/sub2.1    sub1.1
+#   sub2/sub2.2    $ hg -R sub2 tconfig
+#                  sub2.1
+#                  sub2.2
+
 def setconfig(ui, repo, subtrees, opts):
     walk = opts.get('walk')
-    if walk + bool(subtrees) != 1:
-        raise util.Abort(_('use either --walk or subtrees (but not both)'))
+    depth = opts.get('depth')
+    if walk and subtrees:
+        msg = _('subtrees cannot be specified when --walk is used')
+        raise util.Abort(msg)
+    elif not (subtrees or walk or depth):
+        msg = _('specify subtrees, or use --walk and/or --depth')
+        raise util.Abort(msg)
+
     if walk:
-        l = _shortpaths(repo.root, _walk(ui, repo, {}))[1:]
-        return _writeconfig(repo, _ns(ui, opts), l)
+        subtrees = _shortpaths(repo.root, _walk(ui, repo, {}))[1:]
+    elif not subtrees:
+        subtrees = _shortpaths(repo.root, _list(ui, repo, opts))[1:]
+    if depth:
+        return nestconfig(ui, repo, subtrees, opts)
     return _writeconfig(repo, _ns(ui, opts), subtrees)
 
 def config(ui, repo, *subtrees, **opts):
@@ -521,7 +574,10 @@ def config(ui, repo, *subtrees, **opts):
 
     --set:  set the subtree configuration to the specified subtrees.
       Use --set --walk to walk the filesystem rooted at REPO and set the
-      subtree configuration to the discovered repos.
+      subtree configuration to the discovered repos.  Use --depth
+      to write the subtree configuration depth-most, so that each
+      subtree is defined within the nearest enclosing repository.  Note
+      that --walk and --depth may be used together.
 
     --expand:  list the value of config items from the [trees] section.
       Items in the [trees] section can be defined in terms of other
@@ -529,9 +585,9 @@ def config(ui, repo, *subtrees, **opts):
       recursively expanded value.  It returns 0 if at least one config
       item was found; otherwise it returns 1.
 
-    Note that this command does not recurse into subtrees; it operates
-    only on the current repository.  (Use the tlist command to
-    recursively list subtrees.)
+    Note that with the slight exception of --set --depth, this command
+    does not recurse into subtrees; it operates only on the current
+    repository.  (To recursively list subtrees, use the tlist command.)
 
     """
 
@@ -542,8 +598,8 @@ def config(ui, repo, *subtrees, **opts):
     opset = opts.get('set')
     cnt = opadd + opdel + opexp + oplst + opset
     if cnt > 1:
-        raise util.Abort(_('at most one of --add, --del, --expand, --list ' +
-                           'or --set is allowed'))
+        raise util.Abort(_('at most one of --add, --del, --list, ' +
+                           '--set or --expand is allowed'))
     if not opexp and not repo:
         raise util.Abort(_('no repository found'))
     if repo:
@@ -833,6 +889,8 @@ configopts = [('a', 'add', False,
                _('recursively expand config items in the [trees] section')),
               ('l', 'list', False,
                _('list the configured subtrees')),
+              ('', 'depth', False,
+               _('store subtree configuration depth-most')),
               ('s', 'set', False, _('set the subtree config to SUBTREEs'))
              ] + namespaceopt + walkopt
 

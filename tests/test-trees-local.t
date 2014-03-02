@@ -338,8 +338,8 @@ Test tconfig command.
   s1
   s2
 
-  $ hg tconfig -R r4 -s
-  abort: use either --walk or subtrees (but not both)
+  $ hg tconfig -R r4 -s # should fail
+  abort: * (glob)
   [255]
   $ hg tconfig -R r4 -d --all
   $ hg tconfig -R r4
@@ -1216,3 +1216,140 @@ Test tcommand, tparents, tstatus, ttag, tupdate.
   summary:     Added tag xyz for changeset 3abbfd61fcf3
   
 
+Test tconfig --set --depth.
+
+  $ for r in \
+  > n1 n1/a n1/a/b/c n1/a/b/c2 n1/d n1/d/e/f/g n1/d/e/f/g/h n1/d/e/f/i \
+  > n1/d/e/f/j n1/p/q/r n1/p/q/s \
+  > n2 n2/a n2/a/b n2/a/b/c n2/b n2/c n2/d n2/d/e n2/d/e/f n2/d/e/f/g \
+  > n2/a/b/c/c2 \
+  > n3 n3/a/b/c n3/a/b/c/d n3/a/b/c/e n3/x/y n3/a/b/c/f n3/a/b/c/f/g/h \
+  >   n3/x/z n3/p/q/r
+  > do
+  >   mkdir -p $r
+  >   rmdir $r
+  > 	hg init $r
+  > done
+
+  $ hg -R n1 tconfig --set --walk
+  $ hg -R n1 tconfig
+  a
+  a/b/c
+  a/b/c2
+  d
+  d/e/f/g
+  d/e/f/g/h
+  d/e/f/i
+  d/e/f/j
+  p/q/r
+  p/q/s
+  $ hg -R n1 tlist --short
+  .
+  a
+  a/b/c
+  a/b/c2
+  d
+  d/e/f/g
+  d/e/f/g/h
+  d/e/f/i
+  d/e/f/j
+  p/q/r
+  p/q/s
+  $ hg -R n1 tconfig --set --depth
+  $ hg -R n1 tconfig
+  a
+  d
+  p/q/r
+  p/q/s
+  $ hg -R n1 tlist --short
+  .
+  a
+  a/b/c
+  a/b/c2
+  d
+  d/e/f/g
+  d/e/f/g/h
+  d/e/f/i
+  d/e/f/j
+  p/q/r
+  p/q/s
+  $ hg -R n1/a tconfig
+  b/c
+  b/c2
+  $ hg -R n1/d tconfig
+  e/f/g
+  e/f/i
+  e/f/j
+
+tconfig --set --depth with no args should be repeatable
+
+  $ hg -R n1 tconfig --set --depth
+  $ hg -R n1 tconfig
+  a
+  d
+  p/q/r
+  p/q/s
+  $ hg -R n1 tlist --short
+  .
+  a
+  a/b/c
+  a/b/c2
+  d
+  d/e/f/g
+  d/e/f/g/h
+  d/e/f/i
+  d/e/f/j
+  p/q/r
+  p/q/s
+
+  $ hg -R n2 tconfig --set --walk --depth
+  $ hg -R n2 tconfig
+  a
+  b
+  c
+  d
+  $ hg -R n2 tlist --short
+  .
+  a
+  a/b
+  a/b/c
+  a/b/c/c2
+  b
+  c
+  d
+  d/e
+  d/e/f
+  d/e/f/g
+  $ hg -R n2/d tconfig
+  e
+  $ hg -R n2/d/e tconfig
+  f
+  $ hg -R n2/d/e/f tconfig
+  g
+
+  $ hg -R n3 tconfig --set --depth a/b/c a/b/c/d a/b/c/e x/y a/b/c/f \
+  > a/b/c/f/g/h x/z p/q/r
+  $ hg -R n3 tconfig
+  a/b/c
+  x/y
+  x/z
+  p/q/r
+  $ hg -R n3 tlist --short
+  .
+  a/b/c
+  a/b/c/d
+  a/b/c/e
+  a/b/c/f
+  a/b/c/f/g/h
+  x/y
+  x/z
+  p/q/r
+  $ hg -R n3/a/b/c tlist --short
+  .
+  d
+  e
+  f
+  f/g/h
+  $ hg -R n3/a/b/c/f tlist --short
+  .
+  g/h
