@@ -378,12 +378,19 @@ def _clonesubtrees(ui, src, dst, opts):
         subtrees.append(subtree)
     return subtrees
 
-def _clone(ui, source, dest, opts):
-    ui.status('cloning %s\n' % source)
-    src, dst = _clonerepo(ui, source, dest, opts)
-    ui.status(_('created %s\n') % dst.root)
+def _clone(ui, source, dest, opts, skiproot = False):
+    if not skiproot and not os.path.exists(os.path.join(dest, '.hg')):
+        ui.status('cloning %s\n' % source)
+        src, dst = _clonerepo(ui, source, dest, opts)
+        ui.status(_('created %s\n') % dst.root)
+    else:
+        msg = 'skipping %s (destination exists)\n'
+        if skiproot:
+            msg = 'skipping root %s\n'
+        ui.status(msg % source)
+        src, dst = _skiprepo(ui, source, dest)
     subtrees = _clonesubtrees(ui, src, dst, opts)
-    _writeconfig(dst, _ns(ui, opts), subtrees)
+    addconfig(ui, dst, subtrees, opts, True)
 
 # Need to indirect through hg_clone for compatibility w/various hg versions.
 hg_clone = None
@@ -397,13 +404,9 @@ def clone(ui, source, dest=None, *subtreeargs, **opts):
         s = __builtin__.list(subtreeargs)
         s.extend(opts.get('subtrees')) # Note:  extend does not return a value
         opts['subtrees'] = s
-    if not opts.get('skiproot'):
-        _clone(ui, source, dest, opts)
-    else:
-        ui.status('skipping root %s\n' % source)
-        src, dst = _skiprepo(ui, source, dest)
-        subtrees = _clonesubtrees(ui, src, dst, opts)
-        _writeconfig(dst, _ns(ui, opts), subtrees, True)
+    if dest is None:
+        dest = hg.defaultdest(source)
+    _clone(ui, source, dest, opts, opts.get('skiproot'))
     return 0
 
 def _command(ui, repo, argv, stop, opts):

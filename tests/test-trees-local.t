@@ -20,7 +20,7 @@ Create test repos.
   $ hg tclone -q r1 r2
   $ hg tclone -q r1 r3 s1 file:$TESTTMP/r2 s2
 
-Clone r4 in two steps using skiproot.
+Clone r4 in two steps.
 
   $ hg tclone r1 r4 s1
   cloning r1
@@ -48,8 +48,8 @@ Clone r4 in two steps using skiproot.
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   created $TESTTMP/r4/s1/s1.3 with spaces
 
-  $ hg tclone --skiproot r3 r4 s2
-  skipping root r3
+  $ hg tclone r3 r4 s2
+  skipping r3 (destination exists)
   
   cloning $TESTTMP/r3/s2
   updating (to branch default|working directory) (re)
@@ -71,7 +71,7 @@ Clone r4 in two steps using skiproot.
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   created $TESTTMP/r4/s2/s2.2/s2.2.1
 
-Clone using skiproot without explicitly listing subtrees.
+Clone without explicitly listing subtrees.
 
   $ hg tclone r1/s1 rx
   cloning r1/s1
@@ -94,8 +94,8 @@ Clone using skiproot without explicitly listing subtrees.
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   created $TESTTMP/rx/s1.3 with spaces
 
-  $ hg tclone --skiproot rflat rx
-  skipping root rflat
+  $ hg tclone rflat rx
+  skipping rflat (destination exists)
   
   cloning $TESTTMP/rflat/s1
   updating (to branch default|working directory) (re)

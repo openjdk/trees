@@ -47,7 +47,6 @@ Clone repos.
 
   $ hg tclone -U "$TREES_REMOTE_URL/tree-1"
   cloning */tree-1 (glob)
-  destination directory: tree-1
   requesting all changes
   adding changesets
   adding manifests
