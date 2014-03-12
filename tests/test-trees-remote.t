@@ -45,8 +45,8 @@ Clone with aliases.
 
 Clone combining separate trees.
 
-  $ hg tclone -r 0 -U http://hg.openjdk.java.net/jdk7/jdk7 jdk7 \
-  > http://hg.openjdk.java.net/jdk7/hotspot subt | filt
+  $ hg tclone -r 0 -U http://hg.openjdk.java.net/jdk7/jdk7 jdk7 corba \
+  > http://hg.openjdk.java.net/jdk7/hotspot jaxp | filt
   cloning http://hg.openjdk.java.net/jdk7/jdk7
   adding changesets
   adding manifests
@@ -54,7 +54,7 @@ Clone combining separate trees.
   added 1 changesets with 25 changes to 25 files
   created $TESTTMP/jdk7
   
-  cloning http://hg.openjdk.java.net/jdk7/hotspot/corba
+  cloning http://hg.openjdk.java.net/jdk7/jdk7/corba
   adding changesets
   adding manifests
   adding file changes
@@ -73,7 +73,7 @@ Clone combining separate trees.
   default = http://hg.openjdk.java.net/jdk7/jdk7
   
   [$TESTTMP/jdk7/corba]:
-  default = http://hg.openjdk.java.net/jdk7/hotspot/corba
+  default = http://hg.openjdk.java.net/jdk7/jdk7/corba
   
   [$TESTTMP/jdk7/jaxp]:
   default = http://hg.openjdk.java.net/jdk7/hotspot/jaxp
