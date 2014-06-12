@@ -9,22 +9,22 @@ Filter the output from clone for compatibility with various mercurial versions.
 
 Clone with aliases.
 
-  $ hg tclone -r 0 -U http://hg.openjdk.java.net/jdk7/jdk7 jdkx subt | filt
-  cloning http://hg.openjdk.java.net/jdk7/jdk7
+  $ hg tclone -r 0 -U http://hg.openjdk.java.net/jdk9/jdk9 jdkx subt | filt
+  cloning http://hg.openjdk.java.net/jdk9/jdk9
   adding changesets
   adding manifests
   adding file changes
   added 1 changesets with 25 changes to 25 files
   created $TESTTMP/jdkx
   
-  cloning http://hg.openjdk.java.net/jdk7/jdk7/corba
+  cloning http://hg.openjdk.java.net/jdk9/jdk9/corba
   adding changesets
   adding manifests
   adding file changes
   added 1 changesets with 1368 changes to 1368 files
   created $TESTTMP/jdkx/corba
   
-  cloning http://hg.openjdk.java.net/jdk7/jdk7/jaxp
+  cloning http://hg.openjdk.java.net/jdk9/jdk9/jaxp
   adding changesets
   adding manifests
   adding file changes
@@ -33,35 +33,35 @@ Clone with aliases.
 
   $ hg tpaths -R jdkx
   [$TESTTMP/jdkx]:
-  default = http://hg.openjdk.java.net/jdk7/jdk7
+  default = http://hg.openjdk.java.net/jdk9/jdk9
   
   [$TESTTMP/jdkx/corba]:
-  default = http://hg.openjdk.java.net/jdk7/jdk7/corba
+  default = http://hg.openjdk.java.net/jdk9/jdk9/corba
   
   [$TESTTMP/jdkx/jaxp]:
-  default = http://hg.openjdk.java.net/jdk7/jdk7/jaxp
+  default = http://hg.openjdk.java.net/jdk9/jdk9/jaxp
 
   $ rm -fr jdkx
 
 Clone combining separate trees.
 
-  $ hg tclone -r 0 -U http://hg.openjdk.java.net/jdk7/jdk7 jdkx corba \
-  > http://hg.openjdk.java.net/jdk7/hotspot jaxp | filt
-  cloning http://hg.openjdk.java.net/jdk7/jdk7
+  $ hg tclone -r 0 -U http://hg.openjdk.java.net/jdk9/jdk9 jdkx corba \
+  > http://hg.openjdk.java.net/jdk9/dev jaxp | filt
+  cloning http://hg.openjdk.java.net/jdk9/jdk9
   adding changesets
   adding manifests
   adding file changes
   added 1 changesets with 25 changes to 25 files
   created $TESTTMP/jdkx
   
-  cloning http://hg.openjdk.java.net/jdk7/jdk7/corba
+  cloning http://hg.openjdk.java.net/jdk9/jdk9/corba
   adding changesets
   adding manifests
   adding file changes
   added 1 changesets with 1368 changes to 1368 files
   created $TESTTMP/jdkx/corba
   
-  cloning http://hg.openjdk.java.net/jdk7/hotspot/jaxp
+  cloning http://hg.openjdk.java.net/jdk9/dev/jaxp
   adding changesets
   adding manifests
   adding file changes
@@ -70,10 +70,10 @@ Clone combining separate trees.
 
   $ hg tpaths -R jdkx
   [$TESTTMP/jdkx]:
-  default = http://hg.openjdk.java.net/jdk7/jdk7
+  default = http://hg.openjdk.java.net/jdk9/jdk9
   
   [$TESTTMP/jdkx/corba]:
-  default = http://hg.openjdk.java.net/jdk7/jdk7/corba
+  default = http://hg.openjdk.java.net/jdk9/jdk9/corba
   
   [$TESTTMP/jdkx/jaxp]:
-  default = http://hg.openjdk.java.net/jdk7/hotspot/jaxp
+  default = http://hg.openjdk.java.net/jdk9/dev/jaxp
