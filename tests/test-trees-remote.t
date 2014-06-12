@@ -9,71 +9,71 @@ Filter the output from clone for compatibility with various mercurial versions.
 
 Clone with aliases.
 
-  $ hg tclone -r 0 -U http://hg.openjdk.java.net/jdk7/jdk7 jdk7 subt | filt
+  $ hg tclone -r 0 -U http://hg.openjdk.java.net/jdk7/jdk7 jdkx subt | filt
   cloning http://hg.openjdk.java.net/jdk7/jdk7
   adding changesets
   adding manifests
   adding file changes
   added 1 changesets with 25 changes to 25 files
-  created $TESTTMP/jdk7
+  created $TESTTMP/jdkx
   
   cloning http://hg.openjdk.java.net/jdk7/jdk7/corba
   adding changesets
   adding manifests
   adding file changes
   added 1 changesets with 1368 changes to 1368 files
-  created $TESTTMP/jdk7/corba
+  created $TESTTMP/jdkx/corba
   
   cloning http://hg.openjdk.java.net/jdk7/jdk7/jaxp
   adding changesets
   adding manifests
   adding file changes
   added 1 changesets with 1972 changes to 1972 files
-  created $TESTTMP/jdk7/jaxp
+  created $TESTTMP/jdkx/jaxp
 
-  $ hg tpaths -R jdk7
-  [$TESTTMP/jdk7]:
+  $ hg tpaths -R jdkx
+  [$TESTTMP/jdkx]:
   default = http://hg.openjdk.java.net/jdk7/jdk7
   
-  [$TESTTMP/jdk7/corba]:
+  [$TESTTMP/jdkx/corba]:
   default = http://hg.openjdk.java.net/jdk7/jdk7/corba
   
-  [$TESTTMP/jdk7/jaxp]:
+  [$TESTTMP/jdkx/jaxp]:
   default = http://hg.openjdk.java.net/jdk7/jdk7/jaxp
 
-  $ rm -fr jdk7
+  $ rm -fr jdkx
 
 Clone combining separate trees.
 
-  $ hg tclone -r 0 -U http://hg.openjdk.java.net/jdk7/jdk7 jdk7 corba \
+  $ hg tclone -r 0 -U http://hg.openjdk.java.net/jdk7/jdk7 jdkx corba \
   > http://hg.openjdk.java.net/jdk7/hotspot jaxp | filt
   cloning http://hg.openjdk.java.net/jdk7/jdk7
   adding changesets
   adding manifests
   adding file changes
   added 1 changesets with 25 changes to 25 files
-  created $TESTTMP/jdk7
+  created $TESTTMP/jdkx
   
   cloning http://hg.openjdk.java.net/jdk7/jdk7/corba
   adding changesets
   adding manifests
   adding file changes
   added 1 changesets with 1368 changes to 1368 files
-  created $TESTTMP/jdk7/corba
+  created $TESTTMP/jdkx/corba
   
   cloning http://hg.openjdk.java.net/jdk7/hotspot/jaxp
   adding changesets
   adding manifests
   adding file changes
   added 1 changesets with 1972 changes to 1972 files
-  created $TESTTMP/jdk7/jaxp
+  created $TESTTMP/jdkx/jaxp
 
-  $ hg tpaths -R jdk7
-  [$TESTTMP/jdk7]:
+  $ hg tpaths -R jdkx
+  [$TESTTMP/jdkx]:
   default = http://hg.openjdk.java.net/jdk7/jdk7
   
-  [$TESTTMP/jdk7/corba]:
+  [$TESTTMP/jdkx/corba]:
   default = http://hg.openjdk.java.net/jdk7/jdk7/corba
   
-  [$TESTTMP/jdk7/jaxp]:
+  [$TESTTMP/jdkx/jaxp]:
   default = http://hg.openjdk.java.net/jdk7/hotspot/jaxp
