@@ -452,9 +452,12 @@ def commit(ui, repo, *pats, **opts):
     hgcommit = _origcmd('commit')
     def condcommit(ui, repo, *pats, **opts):
         '''commit conditionally - only if there is something to commit'''
-        for l in repo.status()[:3]: # modified, added, removed
-            if l:
-                return hgcommit(ui, repo, *pats, **opts)
+        needcommit = len(repo[None].parents()) > 1 # merge
+        if not needcommit:
+            mar = repo.status()[:3] # modified, added, removed
+            needcommit = bool(mar[0] or mar[1] or mar[2])
+        if needcommit:
+            return hgcommit(ui, repo, *pats, **opts)
         ui.status('nothing to commit\n')
         return 0
 
