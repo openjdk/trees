@@ -241,6 +241,7 @@ def _docmd1(cmd, ui, repo, *args, **opts):
         if o[1] in cmdopts:
             del cmdopts[o[1]]
     trc = cmd(ui, repo, *args, **cmdopts)
+    ui.flush()
     rc = trc != None and trc or 0
     for subtree in _subtreelist(ui, repo, opts):
         ui.status('\n')
@@ -256,6 +257,7 @@ def _docmd2(cmd, ui, repo, remote, adjust, **opts):
 
     ui.status('[%s]:\n' % repo.root)
     trc = cmd(ui, repo, remote, **opts)
+    ui.flush()
     rc = trc != None and trc or 0
     for subtree in _subtreelist(ui, repo, opts):
         ui.status('\n')
