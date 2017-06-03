@@ -131,8 +131,46 @@ testedwith = '''
 2.0-rc 2.0 2.0.2 2.1-rc 2.1 2.1.2 2.2-rc 2.2 2.2.3
 2.3-rc 2.3 2.3.2 2.4-rc 2.4 2.4.2 2.5-rc 2.5 2.5.4
 2.6-rc 2.6 2.6.3 2.7-rc 2.7 2.7.2 2.8-rc 2.8 2.8.2
-2.9-rc 2.9
+2.9-rc 2.9 2.9.1 2.9.2 3.0 3.0.1 3.0.2 3.0-rc 3.1
+3.1.1 3.1.2 3.1-rc 3.2 3.2.1 3.2.2 3.2.3 3.2.4
+3.2-rc 3.3 3.3.1 3.3.2 3.3.3 3.3-rc 3.4 3.4.1 3.4.2
+3.4-rc 3.5 3.5.1 3.5.2 3.5-rc 3.6 3.6.1 3.6.2 3.6.3
+3.6-rc 3.7 3.7.1 3.7.2 3.7.3 3.7-rc 3.8 3.8.1 3.8.2
+3.8.3 3.8.4 3.8-rc 3.9 3.9.1 3.9.2 3.9-rc 4.0-rc
+4.0 4.1
 '''
+
+# From Mercurial 1.9, the preferred way to define commands is using the @command
+# decorator. From version 3.8, the old way of directly defining the command table
+# was deprecated and in 4.1 it's no longer supported at all.
+#
+# By defining a wrapper function, compatibility with most versions is kept. The
+# wrapper first tries to call the actual decorator if it is defined. If it isn't
+# or if it doesn't support all the arguments supplied to it, it falls back to
+# minimal working implementation for our use.
+#
+# Part of the command definition needs to be deferred until other plugins have
+# been loaded so the decorator only adds minimal data here. The rest is filled in
+# further down in extsetup.
+cmdtable = {}
+cmdutil_command = None
+if hasattr(cmdutil, 'command'):
+    cmdutil_command = cmdutil.command(cmdtable)
+
+def command(name, options=(), synopsis=None, norepo=False, optionalrepo=False):
+    if cmdutil_command:
+        try:
+            return cmdutil_command(name, options, synopsis, norepo, optionalrepo)
+        except:
+            # Mercurial versions older than 3.1 does not support all the options
+            # used here. If it fails, fall back to workaround.
+            pass
+    def decorator(func):
+        func.norepo = norepo
+        func.optionalrepo = optionalrepo
+        cmdtable[name] = func, list(options), synopsis
+        return func
+    return decorator
 
 def _checklocal(repo):
     if not isinstance(repo, localrepo.localrepository):
@@ -397,6 +435,7 @@ def _clone(ui, source, dest, opts, skiproot = False):
 # Need to indirect through hg_clone for compatibility w/various hg versions.
 hg_clone = None
 
+@command("^tclone", norepo=True)
 def clone(ui, source, dest=None, *subtreeargs, **opts):
     '''copy one or more existing repositories to create a tree'''
     global hg_clone
@@ -428,7 +467,10 @@ def _command(ui, repo, argv, stop, opts):
             return rc
     return rc
 
-def command(ui, repo, cmd, *args, **opts):
+# This function cannot be named "command" since it clashes with the @command
+# decorator.
+@command('tcommand|tcmd')
+def command_cmd(ui, repo, cmd, *args, **opts):
     """Run a command in each repo in the tree.
 
     Change directory to the root of each repo and run the command.
@@ -445,6 +487,7 @@ def command(ui, repo, cmd, *args, **opts):
     l = __builtin__.list((cmd,) + args)
     return _command(ui, repo, l, opts.get('stop'), opts)
 
+@command('tcommit|tci')
 def commit(ui, repo, *pats, **opts):
     """commit all files"""
     _checklocal(repo)
@@ -567,6 +610,7 @@ def setconfig(ui, repo, subtrees, opts):
         return nestconfig(ui, repo, subtrees, opts)
     return _writeconfig(repo, _ns(ui, opts), subtrees)
 
+@command('tconfig', optionalrepo=True)
 def config(ui, repo, *subtrees, **opts):
     """list or change the subtrees configuration
 
@@ -626,11 +670,13 @@ def config(ui, repo, *subtrees, **opts):
         ui.write(subtree + '\n')
     return 0
 
+@command('tdiff')
 def diff(ui, repo, *args, **opts):
     """diff repository (or selected files)"""
     _checklocal(repo)
     return _docmd1(_origcmd('diff'), ui, repo, *args, **opts)
 
+@command('theads')
 def heads(ui, repo, *branchrevs, **opts):
     """show current repository heads or show branch heads"""
     _checklocal(repo)
@@ -640,6 +686,7 @@ def heads(ui, repo, *branchrevs, **opts):
     # return 0 if any of the repos have matching heads; 1 otherwise.
     return int(rc == repocount)
 
+@command('tincoming')
 def incoming(ui, repo, remote="default", **opts):
     """show new changesets found in source"""
     _checklocal(repo)
@@ -661,7 +708,9 @@ def _list(ui, repo, opts):
             ui.warn('repo %s is missing subtree %s\n' % (repo.root, subtree))
     return l
 
-def list(ui, repo, **opts):
+# This function cannot be named list since it clashes with the python builtin
+@command('tlist')
+def list_cmd(ui, repo, **opts):
     """list the repo and configured subtrees, recursively
 
     The initial list of subtrees is obtained from the command line (if present)
@@ -684,11 +733,13 @@ def list(ui, repo, **opts):
         ui.write(subtree + '\n')
     return 0
 
+@command('^tlog|thistory')
 def log(ui, repo, *args, **opts):
     '''show revision history of entire repository or files'''
     _checklocal(repo)
     return _docmd1(_origcmd('log'), ui, repo, *args, **opts)
 
+@command('tmerge')
 def merge(ui, repo, node=None, **opts):
     '''merge working directory with another revision'''
     _checklocal(repo)
@@ -702,6 +753,7 @@ def merge(ui, repo, node=None, **opts):
 
     return _docmd1(condmerge, ui, repo, node, **opts)
 
+@command('toutgoing')
 def outgoing(ui, repo, remote=None, **opts):
     '''show changesets not found in the destination'''
     _checklocal(repo)
@@ -712,6 +764,7 @@ def outgoing(ui, repo, remote=None, **opts):
     # return 0 if any of the repos have outgoing changes; 1 otherwise.
     return int(rc == repocount)
 
+@command('tparents')
 def parents(ui, repo, filename=None, **opts):
     _checklocal(repo)
     return _docmd1(_origcmd('parents'), ui, repo, filename, **opts)
@@ -725,11 +778,13 @@ def _paths(cmd, ui, repo, search=None, **opts):
         _paths(cmd, lr.ui, lr, search, **opts)
     return 0
 
+@command('tpaths')
 def paths(ui, repo, search=None, **opts):
     '''show aliases for remote repositories'''
     _checklocal(repo)
     return _paths(_origcmd('paths'), ui, repo, search, **opts)
 
+@command('^tpull')
 def pull(ui, repo, remote="default", **opts):
     '''pull changes from the specified source'''
     _checklocal(repo)
@@ -742,6 +797,7 @@ def pull(ui, repo, remote="default", **opts):
     # return 0 if any subtree pulled successfully.
     return int(rc == repocount)
 
+@command('^tpush')
 def push(ui, repo, remote=None, **opts):
     '''push changes to the specified destination'''
     _checklocal(repo)
@@ -753,21 +809,30 @@ def push(ui, repo, remote=None, **opts):
     # anything to push.
     return int(rc == repocount)
 
+@command('^tstatus')
 def status(ui, repo, *args, **opts):
     '''show changed files in the working directory'''
     _checklocal(repo)
     return _docmd1(_origcmd('status'), ui, repo, *args, **opts)
 
-def summary(ui, repo, **opts):
-    """summarize working directory state"""
-    _checklocal(repo)
-    return _docmd1(_origcmd('summary'), ui, repo, **opts)
+try:
+    cmdutil.findcmd('summary', commands.table)
+    @command('tsummary')
+    def summary(ui, repo, **opts):
+        """summarize working directory state"""
+        _checklocal(repo)
+        return _docmd1(_origcmd('summary'), ui, repo, **opts)
+except:
+    # The summary command is not present in early versions of mercurial
+    pass
 
+@command('ttag')
 def tag(ui, repo, name1, *names, **opts):
     '''add one or more tags for the current or given revision'''
     _checklocal(repo)
     return _docmd1(_origcmd('tag'), ui, repo, name1, *names, **opts)
 
+@command('ttip')
 def tip(ui, repo, **opts):
     '''show the tip revision'''
     _checklocal(repo)
@@ -788,6 +853,7 @@ def _update(cmd, ui, repo, node=None, rev=None, clean=False, date=None,
         rc += trc != None and trc or 0
     return rc
 
+@command('^tupdate')
 def update(ui, repo, node=None, rev=None, clean=False, date=None, check=False,
            **opts):
     '''update working directory (or switch revisions)'''
@@ -796,16 +862,19 @@ def update(ui, repo, node=None, rev=None, clean=False, date=None, check=False,
                  **opts)
     return rc and 1 or 0
 
+@command('tversion', norepo=True)
 def version(ui, **opts):
     '''show version information'''
     ui.status('trees extension (version 0.7)\n')
 
+@command('tdefapth')
 def defpath(ui, repo, peer=None, peer_push=None, **opts):
     '''examine and manipulate default path settings for a tree.'''
     def walker(r):
         return _list(ui, r, opts)
     return defpath_mod.defpath(ui, repo, peer, peer_push, walker, opts)
 
+@command('tdebugkeys', norepo=True)
 def debugkeys(ui, src, **opts):
     '''list the tree configuration using mercurial's pushkey mechanism.
 
@@ -929,38 +998,45 @@ def extsetup(ui = None):
     except:
         pass
 
-    global cmdtable
-    cmdtable = {
-        '^tclone': _newcte('clone', clone, cloneopts,
-                           _('[OPTION]... SOURCE [DEST [SUBTREE]...]')),
-        'tcommand|tcmd': (command, commandopts, _('command [arg] ...')),
-        'tcommit|tci': _newcte('commit', commit, subtreesopts),
-        'tconfig': (config, configopts, _('[OPTION]... [SUBTREE]...')),
-        'tdiff': _newcte('diff', diff, subtreesopts),
-        'theads': _newcte('heads', heads, subtreesopts),
-        'tincoming': _newcte('incoming', incoming, subtreesopts),
-        'toutgoing': _newcte('outgoing', outgoing, subtreesopts),
-        'tlist': (list, listopts, _('[OPTION]...')),
-        '^tlog|thistory': _newcte('log', log, subtreesopts),
-        'tmerge': _newcte('merge', merge, subtreesopts),
-        'tparents': _newcte('parents', parents, subtreesopts),
-        'tpaths': _newcte('paths', paths, subtreesopts),
-        '^tpull': _newcte('pull', pull, subtreesopts),
-        '^tpush': _newcte('push', push, subtreesopts),
-        '^tstatus': _newcte('status', status, subtreesopts),
-        '^tupdate': _newcte('update', update, subtreesopts),
-        'ttag': _newcte('tag', tag, subtreesopts),
-        'ttip': _newcte('tip', tip, subtreesopts),
-        'tversion': (version, [], ''),
-        'tdebugkeys': (debugkeys, namespaceopt, '')
-    }
+    # The command and function names are duplicated here from the command
+    # decorators above. This could benefit from further cleanup.
+    cmdtable['^tclone'] = _newcte('clone', clone, cloneopts,
+            _('[OPTION]... SOURCE [DEST [SUBTREE]...]'))
+    cmdtable['tcommand|tcmd'] = (command_cmd, commandopts, _('command [arg] ...'))
+    cmdtable['tcommit|tci'] = _newcte('commit', commit, subtreesopts)
+    cmdtable['tconfig'] = (config, configopts, _('[OPTION]... [SUBTREE]...'))
+    cmdtable['tdiff'] = _newcte('diff', diff, subtreesopts)
+    cmdtable['theads'] = _newcte('heads', heads, subtreesopts)
+    cmdtable['tincoming'] = _newcte('incoming', incoming, subtreesopts)
+    cmdtable['toutgoing'] = _newcte('outgoing', outgoing, subtreesopts)
+    cmdtable['tlist'] = (list_cmd, listopts, _('[OPTION]...'))
+    cmdtable['^tlog|thistory'] = _newcte('log', log, subtreesopts)
+    cmdtable['tmerge'] = _newcte('merge', merge, subtreesopts)
+    cmdtable['tparents'] = _newcte('parents', parents, subtreesopts)
+    cmdtable['tpaths'] = _newcte('paths', paths, subtreesopts)
+    cmdtable['^tpull'] = _newcte('pull', pull, subtreesopts)
+    cmdtable['^tpush'] = _newcte('push', push, subtreesopts)
+    cmdtable['^tstatus'] = _newcte('status', status, subtreesopts)
+    try:
+        cmdtable['tsummary'] = _newcte('summary', summary, subtreesopts)
+    except:
+        # The summary command is not present in early versions of mercurial
+        pass
+    cmdtable['^tupdate'] = _newcte('update', update, subtreesopts)
+    cmdtable['ttag'] = _newcte('tag', tag, subtreesopts)
+    cmdtable['ttip'] = _newcte('tip', tip, subtreesopts)
+    cmdtable['tversion'] = (version, [], '')
+    cmdtable['tdebugkeys'] = (debugkeys, namespaceopt, '')
     if defpath_mod:
         cmdtable['tdefpath'] = (defpath, defpath_opts, _(''))
     if getattr(commands, 'summary', None):
         cmdtable['tsummary'] = _newcte('summary', summary, subtreesopts)
 
-commands.norepo += ' tclone tversion tdebugkeys'
-commands.optionalrepo += ' tconfig'
+# hg > 3.8: setting norepo and optionalrepo can only be done through decorators
+# and these attributes are no longer present.
+if hasattr(commands, 'norepo'):
+    commands.norepo += ' tclone tversion tdebugkeys'
+    commands.optionalrepo += ' tconfig'
 
 def genlistkeys(namespace):
     def _listkeys(repo):
