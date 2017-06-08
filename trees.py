@@ -867,7 +867,7 @@ def version(ui, **opts):
     '''show version information'''
     ui.status('trees extension (version 0.7)\n')
 
-@command('tdefapth')
+@command('tdefpath')
 def defpath(ui, repo, peer=None, peer_push=None, **opts):
     '''examine and manipulate default path settings for a tree.'''
     def walker(r):
