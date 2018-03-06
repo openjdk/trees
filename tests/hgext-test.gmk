@@ -55,7 +55,7 @@
 # include ${HGEXT_TEST}/hgext-test.gmk
 
 HG		?= hg
-HG_CMD          := HGRCPATH= ${HG}
+HG_CMD		:= HGRCPATH= ${HG}
 
 HG_URL		?= http://www.mercurial-scm.org/repo/hg
 # Working clone of ${HG_URL} (modified when running tests).
@@ -100,6 +100,17 @@ ${Q} ${HG_CMD} -R ${HG_REPO} cat -r tip ${RUN_TESTS_PY} > ${RUN_TESTS_PY}
 ${Q} ${HG_CMD} -R ${HG_REPO} cat -r tip ${KILLDAEMONS_PY} > ${KILLDAEMONS_PY}
 endef
 
+# Later versions of Mercurial define a defaults.default-date option, and
+# run-tests.py uses that to zero out changeset dates so that tests are
+# reproducible.  When we test earlier versions of Mercurial using the
+# harness from a later version, however, we must still zero out default
+# dates explicitly.
+RUN_TESTS_OPTS = \
+  --extra-config-opt defaults.backout='-d "0 0"' \
+  --extra-config-opt defaults.commit='-d "0 0"' \
+  --extra-config-opt defaults.shelve='--date "0 0"' \
+  --extra-config-opt defaults.tag='-d "0 0"'
+
 define test-hg-ver-commands
 @    echo "----------------------------------------"
 @    echo "running tests with hg $(notdir $@):"
@@ -114,7 +125,8 @@ endef
 
 test:  clone-hg
 	${test-hg-prep-run-tests}
-	cd ${TEST_DIR} && EXTENSION_PY=${EXTENSION_PY} ${RUN_TESTS_PY} ${TESTS}
+	cd ${TEST_DIR} \
+	&& EXTENSION_PY=${EXTENSION_PY} ${RUN_TESTS_PY} ${RUN_TESTS_OPTS} ${TESTS}
 
 clone-hg: ${HG_REPO}/.hg/requires
 
