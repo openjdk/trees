@@ -55,6 +55,7 @@
 # include ${HGEXT_TEST}/hgext-test.gmk
 
 HG		?= hg
+HG_CMD          := HGRCPATH= ${HG}
 
 HG_URL		?= http://www.mercurial-scm.org/repo/hg
 # Working clone of ${HG_URL} (modified when running tests).
@@ -69,7 +70,7 @@ TESTS		?= *.t
 VERLIST_EXT	= ${HGEXT_TEST}/verlist.py
 VERLIST_CFG	= --config extensions.verlist=${VERLIST_EXT}
 VERLIST_ARGS	= ${VERLIST_CFG} verlist -l ${HG_VERSIONS}
-VERLIST_CMD	= ${HG} -R ${HG_REPO} ${VERLIST_ARGS}
+VERLIST_CMD	= ${HG_CMD} -R ${HG_REPO} ${VERLIST_ARGS}
 VERLIST_TARGETS	= $(if $(wildcard ${HG_REPO}),\
 		    $(addprefix ${TEST_VER_DIR}/,$(shell ${VERLIST_CMD})))
 
@@ -95,16 +96,16 @@ endef
 # those versions.  Get the most recent run-tests.py and killdaemons.py to run
 # the tests.
 define test-hg-prep-run-tests
-${Q} ${HG} -R ${HG_REPO} cat -r tip ${RUN_TESTS_PY} > ${RUN_TESTS_PY}
-${Q} ${HG} -R ${HG_REPO} cat -r tip ${KILLDAEMONS_PY} > ${KILLDAEMONS_PY}
+${Q} ${HG_CMD} -R ${HG_REPO} cat -r tip ${RUN_TESTS_PY} > ${RUN_TESTS_PY}
+${Q} ${HG_CMD} -R ${HG_REPO} cat -r tip ${KILLDAEMONS_PY} > ${KILLDAEMONS_PY}
 endef
 
 define test-hg-ver-commands
 @    echo "----------------------------------------"
 @    echo "running tests with hg $(notdir $@):"
 ${Q} mkdir -p '$(dir $@)'
-${Q} ${HG} -R ${HG_REPO} up -q -C $(notdir $@)
-${Q} ${HG} -R ${HG_REPO} log -r . > $@
+${Q} ${HG_CMD} -R ${HG_REPO} up -q -C $(notdir $@)
+${Q} ${HG_CMD} -R ${HG_REPO} log -r . > $@
 ${Q} ${MAKE} test >> $@ 2>&1 || ${test-hg-failed}
 ${Q} grep '^# Ran ' $@
 endef
@@ -138,8 +139,8 @@ ${TEST_VER_DIR}/tip:  ${EXTENSION_PY} ${HG_REPO}/${changelog}
 	${test-hg-ver-commands}
 
 ${HG_REPO}/.hg/requires:
-	${HG} clone ${HG_URL} ${HG_REPO}
+	${HG_CMD} clone ${HG_URL} ${HG_REPO}
 
 ${HG_REPO}/${changelog}:  ${HG_REPO}/.hg/requires FORCE
-	${Q} ${HG} -R ${HG_REPO} up -q -C tip
-	${Q} ${HG} -R ${HG_REPO} pull -q -u ${HG_URL}
+	${Q} ${HG_CMD} -R ${HG_REPO} up -q -C tip
+	${Q} ${HG_CMD} -R ${HG_REPO} pull -q -u ${HG_URL}
