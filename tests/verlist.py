@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2014, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2014, 2018, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 # 
 # This code is free software; you can redistribute it and/or modify it
@@ -29,7 +29,7 @@ intended use is to generate a list of mercurial versions that should be tested.
 
 """
 
-from mercurial import commands
+from mercurial import cmdutil
 from mercurial import context
 from mercurial import ui
 from mercurial.i18n import _
@@ -73,6 +73,13 @@ def _lastmicro(tlist):
         tags.append(lastmicro)
     return tags
 
+cmdtable = { }
+command = cmdutil.command(cmdtable)
+
+@command('verlist',
+         [('l', 'lastmicro', None,
+           _('list only the last micro version in a minor version family'))],
+         _('[rev_range] ...'))
 def verlist(ui, repo, *pats, **opts):
     """List the tags in a repo, separated by spaces.
 
@@ -94,11 +101,3 @@ def verlist(ui, repo, *pats, **opts):
         tags = _lastmicro(tags)
     ui.write(' '.join(tags))
     ui.write('\n')
-
-cmdtable = {
-    '^verlist':
-        (verlist,
-         [('l', 'lastmicro', None,
-           _('list only the last micro version in a minor version family'))],
-         _('[rev_range] ...'))
-    }
