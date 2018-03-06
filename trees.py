@@ -147,17 +147,30 @@ testedwith = '''
 #
 # By defining a wrapper function, compatibility with most versions is kept. The
 # wrapper first tries to call the actual decorator if it is defined. If it isn't
-# or if it doesn't support all the arguments supplied to it, it falls back to
+# or if it doesn't support all the arguments supplied to it, it falls back to a
 # minimal working implementation for our use.
 #
 # Part of the command definition needs to be deferred until other plugins have
-# been loaded so the decorator only adds minimal data here. The rest is filled in
-# further down in extsetup.
+# been loaded so the decorator only adds minimal data here. The rest is filled
+# in further down in extsetup.
+#
+# From version 4.4 we further need to register config items, so since that too
+# involves exploratory imports we also take care of that here.
+
 cmdtable = {}
 cmdutil_command = None
+configtable = {}
+configitem = None
 try:
     from mercurial import registrar
     cmdutil_command = registrar.command(cmdtable)
+    try:
+        from mercurial import configitems
+        if hasattr(configitems, 'itemregister'):
+            # Only bother with this from 4.4 onward
+            configitem = registrar.configitem(configtable)
+    except:
+        pass
 except:
     from mercurial import cmdutil
     if hasattr(cmdutil, 'command'):
@@ -177,6 +190,13 @@ def command(name, options=(), synopsis=None, norepo=False, optionalrepo=False):
         cmdtable[name] = func, list(options), synopsis
         return func
     return decorator
+
+# Register config items (hg 4.4)
+if configitem:
+    configitem('trees', 'namespace', default='trees')
+    configitem('trees', 'namespaces', default=[])
+    configitem('trees', 'splitargs', default=True)
+    configitem('trees', '.*', default=None, generic=True)
 
 def _checklocal(repo):
     if not isinstance(repo, localrepo.localrepository):
