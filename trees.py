@@ -142,7 +142,8 @@ testedwith = '''
 
 # From Mercurial 1.9, the preferred way to define commands is using the @command
 # decorator. From version 3.8, the old way of directly defining the command table
-# was deprecated and in 4.1 it's no longer supported at all.
+# was deprecated and in 4.1 it's no longer supported at all. From version 4.3,
+# registrar.command is preferred over cmdutil.command.
 #
 # By defining a wrapper function, compatibility with most versions is kept. The
 # wrapper first tries to call the actual decorator if it is defined. If it isn't
@@ -154,15 +155,20 @@ testedwith = '''
 # further down in extsetup.
 cmdtable = {}
 cmdutil_command = None
-if hasattr(cmdutil, 'command'):
-    cmdutil_command = cmdutil.command(cmdtable)
+try:
+    from mercurial import registrar
+    cmdutil_command = registrar.command(cmdtable)
+except:
+    from mercurial import cmdutil
+    if hasattr(cmdutil, 'command'):
+        cmdutil_command = cmdutil.command(cmdtable)
 
 def command(name, options=(), synopsis=None, norepo=False, optionalrepo=False):
     if cmdutil_command:
         try:
             return cmdutil_command(name, options, synopsis, norepo, optionalrepo)
         except:
-            # Mercurial versions older than 3.1 does not support all the options
+            # Mercurial versions older than 3.1 do not support all the options
             # used here. If it fails, fall back to workaround.
             pass
     def decorator(func):
