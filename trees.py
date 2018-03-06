@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010, 2014, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2010, 2018, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -360,8 +360,15 @@ def _readfile(path):
             f.close()
         return None
 
+# hg >= 4.2: Use repo.vfs.join instead of repo.join
+def _repo_join(repo, path):
+    if (hasattr(repo, 'vfs')):
+        return repo.vfs.join(path)
+    else:
+        return repo.join(path)
+
 def _writeconfig(repo, namespace, subtrees, append = False):
-    confpath = repo.join(namespace or 'trees')
+    confpath = _repo_join(repo, namespace or 'trees')
     if subtrees:
         newconfig = '\n'.join(subtrees) + '\n'
         if append or newconfig != _readfile(confpath):
@@ -1038,13 +1045,20 @@ if hasattr(commands, 'norepo'):
     commands.norepo += ' tclone tversion tdebugkeys'
     commands.optionalrepo += ' tconfig'
 
+# hg >= 4.2: Use repo.vfs instead of repo.opener
+def _repo_opener(repo, ns):
+    if (hasattr(repo, 'vfs')):
+        return repo.vfs(ns)
+    else:
+        return repo.opener(ns)
+
 def genlistkeys(namespace):
     def _listkeys(repo):
         # trees are ordered, so the keys are the non-negative integers.
         d = {}
         i = 0
         try:
-            for line in repo.opener(namespace):
+            for line in _repo_opener(repo, namespace):
                 d[("%d" % i)] = line.rstrip('\n\r')
                 i += 1
             return d
@@ -1066,7 +1080,7 @@ def reposetup(ui, repo):
             d = {}
             i = 0
             try:
-                for line in self.opener(namespace):
+                for line in _repo_opener(self, namespace):
                     d[("%d" % i)] = line.rstrip('\n\r')
                     i += 1
                 return d
