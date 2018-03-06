@@ -690,6 +690,7 @@ Pull, merge, push.
   adding manifests
   adding file changes
   added 1 changesets with 1 changes to 1 files (+1 heads)
+  new changesets e87282477f23 (?)
   (run 'hg heads' to see heads, 'hg merge' to merge)
   
   [$TESTTMP/r2/s2/s2.1]:
@@ -704,6 +705,7 @@ Pull, merge, push.
   adding manifests
   adding file changes
   added 1 changesets with 1 changes to 1 files (+1 heads)
+  new changesets 19c35aa89db4 (?)
   (run 'hg heads' to see heads, 'hg merge' to merge)
   
   [$TESTTMP/r2/s2/s2.2/s2.2.1]:
@@ -713,6 +715,7 @@ Pull, merge, push.
   adding manifests
   adding file changes
   added 1 changesets with 1 changes to 1 files (+1 heads)
+  new changesets 0830ec9a3521 (?)
   (run 'hg heads' to see heads, 'hg merge' to merge)
   $ hg -R r2 tmerge
   [$TESTTMP/r2]:

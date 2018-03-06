@@ -52,6 +52,7 @@ Clone repos.
   adding manifests
   adding file changes
   added 1 changesets with 1 changes to 1 files
+  new changesets 850dc2bd92e6 (?)
   created $TESTTMP/tree-1
   
   cloning */tree-1/sub-1 (glob)
@@ -60,6 +61,7 @@ Clone repos.
   adding manifests
   adding file changes
   added 1 changesets with 1 changes to 1 files
+  new changesets 821cdfafabad (?)
   created $TESTTMP/tree-1/sub-1
   
   cloning */tree-1/sub-2 (glob)
@@ -68,6 +70,7 @@ Clone repos.
   adding manifests
   adding file changes
   added 1 changesets with 1 changes to 1 files
+  new changesets b67463bb6e1d (?)
   created $TESTTMP/tree-1/sub-2
 
   $ hg tclone -U "$TREES_REMOTE_URL/tree-1" t1 sub-1 \
@@ -78,6 +81,7 @@ Clone repos.
   adding manifests
   adding file changes
   added 1 changesets with 1 changes to 1 files
+  new changesets 850dc2bd92e6 (?)
   created $TESTTMP/t1
   
   cloning */tree-1/sub-1 (glob)
@@ -86,6 +90,7 @@ Clone repos.
   adding manifests
   adding file changes
   added 1 changesets with 1 changes to 1 files
+  new changesets 821cdfafabad (?)
   created $TESTTMP/t1/sub-1
   
   cloning */tree-2/sub-2 (glob)
@@ -94,6 +99,7 @@ Clone repos.
   adding manifests
   adding file changes
   added 1 changesets with 1 changes to 1 files
+  new changesets ddb4fc6b36f3 (?)
   created $TESTTMP/t1/sub-2
   
   cloning */tree-2/sub-3 (glob)
@@ -102,6 +108,7 @@ Clone repos.
   adding manifests
   adding file changes
   added 1 changesets with 1 changes to 1 files
+  new changesets 06f9fbb585cc (?)
   created $TESTTMP/t1/sub-3
 
   $ hg tclone -U "$TREES_REMOTE_URL/tree-1" t2 \
@@ -112,6 +119,7 @@ Clone repos.
   adding manifests
   adding file changes
   added 1 changesets with 1 changes to 1 files
+  new changesets 850dc2bd92e6 (?)
   created $TESTTMP/t2
   
   cloning */tree-1/sub-1 (glob)
@@ -120,6 +128,7 @@ Clone repos.
   adding manifests
   adding file changes
   added 1 changesets with 1 changes to 1 files
+  new changesets 821cdfafabad (?)
   created $TESTTMP/t2/sub-1
   
   cloning */tree-1/sub-2 (glob)
@@ -128,6 +137,7 @@ Clone repos.
   adding manifests
   adding file changes
   added 1 changesets with 1 changes to 1 files
+  new changesets b67463bb6e1d (?)
   created $TESTTMP/t2/sub-2
   
   cloning */tree-2/sub-3 (glob)
@@ -136,4 +146,5 @@ Clone repos.
   adding manifests
   adding file changes
   added 1 changesets with 1 changes to 1 files
+  new changesets 06f9fbb585cc (?)
   created $TESTTMP/t2/sub-3

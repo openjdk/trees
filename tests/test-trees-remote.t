@@ -15,6 +15,7 @@ Clone with aliases.
   adding manifests
   adding file changes
   added 1 changesets with 25 changes to 25 files
+  new changesets cfeea66a3fa8 (?)
   created $TESTTMP/jdkx
   
   cloning http://hg.openjdk.java.net/jdk9/jdk9/corba
@@ -22,6 +23,7 @@ Clone with aliases.
   adding manifests
   adding file changes
   added 1 changesets with 1368 changes to 1368 files
+  new changesets 55540e827aef (?)
   created $TESTTMP/jdkx/corba
   
   cloning http://hg.openjdk.java.net/jdk9/jdk9/jaxp
@@ -29,6 +31,7 @@ Clone with aliases.
   adding manifests
   adding file changes
   added 1 changesets with 1972 changes to 1972 files
+  new changesets 6ce5f4757bde (?)
   created $TESTTMP/jdkx/jaxp
 
   $ hg tpaths -R jdkx
@@ -52,6 +55,7 @@ Clone combining separate trees.
   adding manifests
   adding file changes
   added 1 changesets with 25 changes to 25 files
+  new changesets cfeea66a3fa8 (?)
   created $TESTTMP/jdkx
   
   cloning http://hg.openjdk.java.net/jdk9/jdk9/corba
@@ -59,6 +63,7 @@ Clone combining separate trees.
   adding manifests
   adding file changes
   added 1 changesets with 1368 changes to 1368 files
+  new changesets 55540e827aef (?)
   created $TESTTMP/jdkx/corba
   
   cloning http://hg.openjdk.java.net/jdk9/dev/jaxp
@@ -66,6 +71,7 @@ Clone combining separate trees.
   adding manifests
   adding file changes
   added 1 changesets with 1972 changes to 1972 files
+  new changesets 6ce5f4757bde (?)
   created $TESTTMP/jdkx/jaxp
 
   $ hg tpaths -R jdkx
