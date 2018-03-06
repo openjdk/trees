@@ -97,6 +97,10 @@ def verlist(ui, repo, *pats, **opts):
     for revspec in pats or [':']:
         tags += _verlist(repo, revspec)
     tags = [x[0] for x in tags] # Just the tag names
+
+    # Skip release candidates, and tip
+    tags = filter(lambda t: not t.endswith('-rc') and t != "tip", tags)
+
     if opts.get('lastmicro'):
         tags = _lastmicro(tags)
     ui.write(' '.join(tags))

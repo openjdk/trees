@@ -139,6 +139,8 @@ clean-hg-repo:
 # Run the tests with multiple hg versions.
 test-hg-versions:  ${HG_REPO}/${changelog} ${VERLIST_TARGETS}
 
+show-versions: ; @echo $(notdir ${VERLIST_TARGETS})
+
 # The tags in the mercurial repo (aside from tip) do not change, so no need to
 # retest with old hg versions unless trees.py has changed.  Use .hg/requires
 # as a dependency to trigger a clone if it doesn't exist (using ${HG_REPO}
