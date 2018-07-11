@@ -123,6 +123,7 @@ from mercurial import localrepo
 from mercurial import pushkey
 from mercurial import ui
 from mercurial import util
+from mercurial import error
 from mercurial.i18n import _
 
 testedwith = '''
@@ -133,8 +134,16 @@ testedwith = '''
 3.0 3.0.2 3.1 3.1.2 3.2 3.2.4 3.3 3.3.3 3.4 3.4.2
 3.5 3.5.2 3.6 3.6.3 3.7 3.7.3 3.8 3.8.4 3.9 3.9.2
 4.0 4.0.2 4.1 4.1.3 4.2 4.2.2 4.3 4.3.3 4.4 4.4.2
-4.5
+4.5 4.5.3 4.6
 '''
+
+# Abort() was moved/copied from util to error in hg 1.3 and was removed from
+# util in 4.6.
+error_Abort = None
+if hasattr(error, 'Abort'):
+    error_Abort = error.Abort
+else:
+    error_Abort = util.Abort
 
 # From Mercurial 1.9, the preferred way to define commands is using the @command
 # decorator. From version 3.8, the old way of directly defining the command table
@@ -196,7 +205,7 @@ if configitem:
 
 def _checklocal(repo):
     if not isinstance(repo, localrepo.localrepository):
-        raise util.Abort(_('repository is not local'))
+        raise error_Abort(_('repository is not local'))
 
 def _expandsubtrees(ui, subtrees):
     """Expand subtree aliases.
@@ -411,7 +420,7 @@ def _clonerepo(ui, source, dest, opts):
     s, d = hg_clone(ui, opts, source, dest,
                     pull=opts.get('pull'),
                     stream=opts.get('uncompressed'),
-                    rev=opts.get('rev'),
+                    revs=opts.get('rev'),
                     update=opts.get('updaterev') or not opts.get('noupdate'),
                     branch=opts.get('branch'))
     if isinstance(s, localrepo.localrepository) or isinstance(d.local(), bool):
@@ -521,7 +530,7 @@ def commit(ui, repo, *pats, **opts):
     """commit all files"""
     _checklocal(repo)
     if pats:
-        util.Abort('must commit all files')
+        error_Abort('must commit all files')
 
     hgcommit = _origcmd('commit')
     def condcommit(ui, repo, *pats, **opts):
@@ -543,7 +552,7 @@ def addconfig(ui, repo, subtrees, opts, ignoredups = False):
     for subtree in subtrees:
         if subtree in l:
             if not ignoredups:
-                raise util.Abort(_('subtree %s already configured' % subtree))
+                raise error_Abort(_('subtree %s already configured' % subtree))
         else:
             l += [subtree]
             modified = True
@@ -554,13 +563,13 @@ def addconfig(ui, repo, subtrees, opts, ignoredups = False):
 def delconfig(ui, repo, subtrees, opts):
     all = opts.get('all')
     if all and subtrees:
-        raise util.Abort(_('use either --all or subtrees (but not both)'))
+        raise error_Abort(_('use either --all or subtrees (but not both)'))
     if all:
         return _writeconfig(repo, _ns(ui, opts), [])
     l = _subtreelist(ui, repo, opts)
     for subtree in subtrees:
         if not subtree in l:
-            raise util.Abort(_('no subtree %s' % subtree))
+            raise error_Abort(_('no subtree %s' % subtree))
         l.remove(subtree)
     return _writeconfig(repo, _ns(ui, opts), l)
 
@@ -626,10 +635,10 @@ def setconfig(ui, repo, subtrees, opts):
     depth = opts.get('depth')
     if walk and subtrees:
         msg = _('subtrees cannot be specified when --walk is used')
-        raise util.Abort(msg)
+        raise error_Abort(msg)
     elif not (subtrees or walk or depth):
         msg = _('specify subtrees, or use --walk and/or --depth')
-        raise util.Abort(msg)
+        raise error_Abort(msg)
 
     if walk:
         subtrees = _shortpaths(repo.root, _walk(ui, repo, {}))[1:]
@@ -679,10 +688,10 @@ def config(ui, repo, *subtrees, **opts):
     opset = opts.get('set')
     cnt = opadd + opdel + opexp + oplst + opset
     if cnt > 1:
-        raise util.Abort(_('at most one of --add, --del, --list, ' +
+        raise error_Abort(_('at most one of --add, --del, --list, ' +
                            '--set or --expand is allowed'))
     if not opexp and not repo:
-        raise util.Abort(_('no repository found'))
+        raise error_Abort(_('no repository found'))
     if repo:
         _checklocal(repo)
 
@@ -870,8 +879,10 @@ def tip(ui, repo, **opts):
 def _update(cmd, ui, repo, node=None, rev=None, clean=False, date=None,
             check=False, **opts):
     ui.status('[%s]:\n' % repo.root)
-    if _newupdate:
-        trc = cmd(ui, repo, node, rev, clean, date, check)
+    update_num_args = len(inspect.getargspec(commands.update)[0])
+    # hg 4.6: any arg after the 3rd must be specified with name
+    if update_num_args >= 7 or update_num_args <= 3:
+        trc = cmd(ui, repo, node=node, rev=rev, clean=clean, date=date, check=check)
     else:
         trc = cmd(ui, repo, node, rev, clean, date)
     rc = trc != None and trc or 0
@@ -936,18 +947,26 @@ def compatible_clone():
     clone_args = inspect.getargspec(hg.clone)[0]
     if not 'branch' in clone_args:
         # hg < 1.5:  no 'branch' parameter (a78bfaf988e1)
-        def hg_clone(ui, peeropts, source, dest=None, pull=False, rev=None,
+        def hg_clone(ui, peeropts, source, dest=None, pull=False, revs=None,
                      update=True, stream=False, branch=None):
             rui = hg.remoteui(ui, peeropts)
-            return hg.clone(rui, source, dest, pull, rev, update, stream)
+            return hg.clone(rui, source, dest, pull, revs, update, stream)
         return hg_clone
     if len(clone_args) < 9:
         # hg < 1.9:  no 'peeropts' parameter (d976542986d2, bd1acea552ff).
-        def hg_clone(ui, peeropts, source, dest=None, pull=False, rev=None,
+        def hg_clone(ui, peeropts, source, dest=None, pull=False, revs=None,
                      update=True, stream=False, branch=None):
             rui = hg.remoteui(ui, peeropts)
-            return hg.clone(rui, source, dest, pull, rev, update, stream,
+            return hg.clone(rui, source, dest, pull, revs, update, stream,
                             branch)
+        return hg_clone
+    if 'rev' in clone_args:
+        # hg < 4.6: argument is named 'rev', renamed to 'revs' in 4.6
+        def hg_clone(ui, peeropts, source, dest=None, pull=False, revs=None,
+                     update=True, stream=False, branch=None):
+            return hg.clone(ui, peeropts, source, dest=dest, pull=pull,
+                            rev=revs, update=update, stream=stream,
+                            branch=branch)
         return hg_clone
     return hg.clone
 
@@ -955,7 +974,6 @@ def compatible_clone():
 if getattr(hg, 'peer', None) is None:
     hg.peer = lambda ui, opts, url: hg.repository(ui, url)
 
-_newupdate = len(inspect.getargspec(commands.update)[0]) >= 7
 namespaceopt = [('', 'tns', '',
                  _('trees namespace to use'),
                  _('NAMESPACE'))]

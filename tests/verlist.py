@@ -34,6 +34,19 @@ from mercurial import context
 from mercurial import ui
 from mercurial.i18n import _
 
+# From Mercurial 1.9, the preferred way to define commands is using the @command
+# decorator. If this isn't available, fallback on a simple local implementation
+# that just adds the data to the cmdtable.
+cmdtable = {}
+if hasattr(cmdutil, 'command'):
+    command = cmdutil.command(cmdtable)
+else:
+    def command(name, options, synopsis):
+        def decorator(func):
+            cmdtable[name] = func, list(options), synopsis
+            return func
+        return decorator
+
 def splitrevspec(revspec):
     """revrange is a string, e.g., rev, rev:, rev1:rev2, :rev, :"""
     idx = revspec.find(':')
@@ -50,7 +63,7 @@ def tagslist(repo, beg_rev, end_rev):
     while context.changectx(repo, tags[j][1]).rev() > end_rev:
         j -= 1
     return tags[i:j + 1]
-        
+
 def _verlist(repo, revspec):
     beg, end = splitrevspec(revspec)
     beg = beg and context.changectx(repo, beg).rev() or 0
@@ -99,7 +112,7 @@ def verlist(ui, repo, *pats, **opts):
     tags = [x[0] for x in tags] # Just the tag names
 
     # Skip release candidates, and tip
-    tags = filter(lambda t: not t.endswith('-rc') and t != "tip", tags)
+    tags = filter(lambda t: 'rc' not in t and t != 'tip', tags)
 
     if opts.get('lastmicro'):
         tags = _lastmicro(tags)
